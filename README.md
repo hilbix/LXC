@@ -6,21 +6,51 @@ This works around several shortcomings of LXC and mmdebstrap:
 - The mapped UIDs are taken from `~/.config/lxc/default.conf` instead of `/etc/subuid`+`/etc/subgid`
 - The latter are registries and can only be changed by `root`
 - while `default.conf` can be created by you as you like it.
-- `~/.config/lxc/default.conf` is way to complex for normal users, so a default one is provided.
+- `~/.config/lxc/default.conf` is way to complex for normal users, so this is can be created for you.
+- There are interactive questions to setup your LXC directory.
+- You can have different LXC directories which can share parts of the configuration etc.
 
-TODO:
-
-- Currently everything is automatic and defined in LXC's `default.conf`.  This should change.
 
 ## Usage
 
 	cd
 	git clone https://github.com/hilbix/LXC.git
-	./gen.sh
-	# Follow the menu
+	./lxc.sh
+	# Follow the white rabbit
 
 Later you can do:
 
-	./gen.sh $CONTAINER ${TYPE:-DEFAULT}
+	./lxc.sh $CONTAINER ${TYPE:-DEFAULT}
 
+There are no complex options.  Just run it and follow the white rabbit.
+
+
+## FAQ
+
+Follow the White Rabbit?
+
+- Knock Knock, Neo, which pill?
+- Eat me, Alice, or drink me?
+
+WTF why?
+
+- Because I need it.
+- Running things like Maven/Bower/Android Studio outside of containers is like Bungee Jumping without rope.
+- Even with a rope it stays extremely dangerous, like driving an old car without Belts'n'Airbags.
+- Remember:  Even if containers might protect you by chance, the inside still might hurt others, like wearing no COVID19 Mask.
+
+License?
+
+- Free as free beer, free speech, free baby.
+
+Patches?  Contrib?
+
+- Create a PR on GitHub.
+- Stick to the license and waive all copyright.
+- Eventually I listen.
+
+Contact?  Question?
+
+- Create an issue on GitHub.
+- Eventually I listen.
 
