@@ -41,9 +41,16 @@ Follow the White Rabbit?
 WTF why?
 
 - Because I need it.
-- Running things like Maven/Bower/Android Studio outside of containers is like Bungee Jumping without rope.
-- Even with a rope it stays extremely dangerous, like driving an old car without Belts'n'Airbags.
-- Remember:  Even if containers might protect you by chance, the inside still might hurt others, like wearing no COVID19 Mask.
+
+Secure?
+
+- This here should be as secure as Debian and `lxc-nsuserexec`, as it only uses what is already builtin into your OS.
+- Unlike `lxc-create -t download` it does not use any additional and possibly dangerous external third party source or registry.
+- Running things like Maven/Bower/Android Studio outside of containers is like a Bungee Jump without rope.
+- But even with a rope it stays extremely dangerous, like driving an old car without Belts'n'Airbags.
+- Even if containers might protect you by chance, it still might hurt others.  It's like not wearing a COVID19 Mask.
+- Hence this here does not magically protect you or yours somehow.  You still have to stay alert.
+- However it helps your to implement clean and easy to understand additinal security barriers under your control.
 
 License?
 
