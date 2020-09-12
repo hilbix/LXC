@@ -10,21 +10,32 @@ OOPS() { STDERR OOPS: "$@"; exit 23; }
 x() { "$@"; }
 o() { x "$@" || OOPS rc=$?: "$@"; }
 
-if 
-
-CONTAINER="$1"
-SETTINGS="${2:-$1}"
-
-for a in awk mmdebstrap newgidmap newuidmap lxc-ls
-do
-	which "$a" >/dev/null || OOPS this needs "$a" installed
-done
-
 usage()
 {
   awk -vARG0="${0##*/}" '/^#U ?/ { sub(/^#U ?/,""); gsub(/{ARG0}/ARG0/); print }' "$0"
   exit 42
 }
+
+check-BIN()
+{
+for a in awk mmdebstrap newgidmap newuidmap lxc-ls
+do
+	which "$a" >/dev/null || OOPS this needs "$a" installed
+done
+}
+
+check-MAP()
+{
+  : T.B.D.
+}
+
+check-BIN
+check-MAP
+[ -d LXC ] || setup-LXC
+[ -d CONF ] || setup-CONF
+
+CONTAINER="$1"
+SETTINGS="${2:-$1}"
 
 [ -z "$1" ] || usage
 
@@ -35,6 +46,30 @@ cd "$HERE"
 # Hopefully "mmdebstrap" continues to use $PATH for them,
 # as else it would be more easy to just re-invent something like mmdebstrap from scratch.
 export PATH="$HERE/bin:$PATH"
+
+settings-read
+lxc-container-config
+lxc-container-debian-keyring
+lxc-container-mmdebstrap
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 C=buster
 T=buster
