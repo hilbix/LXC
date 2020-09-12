@@ -4,6 +4,17 @@
 #U	- If settings/type is missing, settings/container is used
 #U	- If settings/container is missing, settings/DEFAULT is used
 
+set -C		# noclobber
+
+DEFAULTS()
+{
+LXC_SUITE=buster
+LXC_VARIANT=minbase
+LXC_KEYS=debian-archive-keyring.gpg
+LXC_REPO=http://deb.debian.org/debian/
+LXC_INCLUDES=vim		# comma separated
+}
+
 # Quick'n'dirty standards
 STDOUT() { local e=$?; printf '%q' "$1"; [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
 STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
@@ -13,14 +24,18 @@ x() { "$@"; }
 o() { x "$@" || OOPS rc=$?: "$@"; }
 # touch $'hello world\n' && f="$(echo hell*)" && test -f "$f" || echo POSIX fail
 # touch $'hello world\n' && v f  echo hell*   && test -f "$f" && echo POSIX corrected
-v() { eval "$1"='"$(x "$@" && echo x)"' && eval "$1=\${$1%x}" && eval "$1=\${$1%\$'\\n'}"; }
+v() { eval "$1"='"$(x "${@:2}" && echo x)"' && eval "$1=\${$1%x}" && eval "$1=\${$1%\$'\\n'}"; }
+ov() { o v "$@"; }
 
+# present usage.  DRY: Take from comments in this file
 usage()
 {
-  awk -vARG0="${0##*/}" '/^#U ?/ { sub(/^#U ?/,""); gsub(/{ARG0}/ARG0/); print }' "$0"
+  awk -vARG0="${0##*/}" '/^#U ?/ { sub(/^#U ?/,""); gsub(/{ARG0}/, ARG0); print }' "$0"
   exit 42
 }
 
+# check for needed binaries being in PATH
+# Note:  We change the PATH, this must happen afterwards, as we want to replace some of the binaries with our patched version
 check-BIN()
 {
 for a in			\
@@ -34,93 +49,177 @@ do
 done
 }
 
-check-MAP()
+mustnotexist()
 {
-WARN check-MAP not yet implemented
+[ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$HERE:" "$1" exists: "${@:2}"
 }
 
+# Create the directory or softlink to LXC.  This is where the containers are stored.
 setup-LXC()
 {
-[ ! -L LXC ] && [ ! -e LXC ] || OOPS LXC exists and is no directory or softlink to directory
-WARN setup-LXC not yet completed.  Creating default LXC/
-o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" LXC
+mustnotexist "$1"
+WARN setup-LXC not yet completed.  Creating default "$1"/
+o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
 }
 
+# Create the directory or softlink to CONF.
+# This is a directory where we want to keep the configuration outside of the container space itself.
+# It makes sense to overlay this with the standard LXC configuration directory (so take default.conf always from ~/.config/lxc/).
 setup-CONF()
 {
-[ ! -L CONF ] && [ ! -e CONF ] || OOPS CONF exists and is no directory or softlink to directory
-WARN setup-LXC not yet completed.  Creating default CONF/
-o ln -nsf --backup=t --relative "$HOME/.config/lxc" CONF
+mustnotexist "$1"
+WARN setup-CONF not yet completed.  Creating default "$1"/
+o ln -nsf --backup=t --relative "$HOME/.config/lxc" "$1"
 }
 
+# Find entries of /etc/sub?id and output them the LXC way
+# XXX TODO XXX this is shit in shit out, so it must be checked in check-DEFAULT
+: map2lxc 1:? 2:/etc/sub?id 3:?id 4:?name 5:[startvalue:-1]
 map2lxc()
 {
 [ -s "$2" ] || OOPS mapping file "$2" missing, see SUB_UID in man useradd
-awk -F: -vU="$U" -vN="$N" -vT="$1" '
-BEGIN		{ I=1 }
-$1==U || $1==N	{ print lxc.idmap = T " " I " " $2 " " $3; I+=$3 }
+awk -F: -vT="$1" -vU="$3" -vN="$4" -vC="${5:-1}" '
+$1==U || $1==N	{ print "lxc.idmap = " T " " C " " $2 " " $3; C+=$3 }
 ' "$2"
 }
 
+# Create a suitable and meaningful ~/.config/lxc/default.conf
+# :xx:xx:xx below is the correct LXC way of configuring multiple interfaces
+# In OUR case the xx:xx:xx will be replaced by the container config's inode
 setup-DEFAULT()
 {
-[ ! -L CONF/default.conf ] && [ ! -e CONF/default.conf ] || OOPS CONF/default.conf exists and is no file or softlink to file
-WARN setup-DEFAULT not yet completed.  Creating default CONF/default.conf
-o v TMP mktemp -p CONF default.conf.XXXXXX
-o U id -u
-o N id -u -n
-o G id -g
+local U G N S D F TMP
+mustnotexist "$1"
+WARN setup-DEFAULT not yet completed.  Creating default "$1"
+ov D dirname "$1"
+ov F basename "$1" .conf
+ov TMP mktemp -p "$D" "$F".XXXXXX.tmp
+ov U id -u
+ov G id -g
+ov N id -u -n
+ov S id -g -n
 {
-# The ETH Vendor 00163e is XENsource INC
-# lxcbr0 is the default LXC bridge
+# I did not find a proper authentic documentation about default.conf
+# man lxc.system.conf is only partially helpful,
+# it is more like an example where all the problems with lxc start ..
+#
+# xx:xx:xx will be replaced by some random value (LXC),
+# in our case we fill in the container config's inode
 o cat <<EOF
+# lxcbr0 is the default LXC bridge
+# ETH Vendor 00163e is XENsource INC
 lxc.net.0.type = veth
 lxc.net.0.link = lxcbr0
 lxc.net.0.flags = up
 lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
+# The outside user (you!) becomes "root" in a container (from outside without powers)
+# This way it becomes way more easy to interact with containers
 lxc.idmap = u 0 $U 1
 lxc.idmap = g 0 $G 1
+# More mapping from /etc/sub?id
 EOF
-o map2lxc u /etc/subuid
-o map2lxc g /etc/subgid
+o map2lxc u /etc/subuid "$U" "$N"
+o map2lxc g /etc/subgid "$G" "$S"
 } > "$TMP" || OOPS cannot write "$TMP"
-o mv --backup=t "$TMP" CONF/default.conf
+o mv --backup=t "$TMP" "$1"
 }
 
+# Check the default LXC setting for possible errors or unknown parts
 check-DEFAULT()
 {
-WARN check-DEFAULT not implemented, so ignored
-: T.B.D.: check network
-: T.B.D.: check idmaps
+WARN check-DEFAULT not implemented: setting not checked yet
+# XXX TODO XXX check network
+# XXX TODO XXX check idmaps for enough range
 }
 
-check-BIN
-check-MAP
-[ -d LXC ] || setup-LXC
-[ -d CONF ] || setup-CONF
-[ -f CONF/default.conf ] || setup-DEFAULT
-check-DEFAULT
+# Read CONF/lxc-$CONTAINER.config (CONTAINER is the 1st commandline argument)
+# This is a hybrid:
+# - It is the lxc.container.conf
+# - It also contans the container settings for this script
+# If the config file is missing
+# - It will be created.
+# - The template to use is taken from CONF/lxc-$SETTINGS.conf (SETTINGS is 2nd commandline argument)
+# - If CONF/lxc-$SETTINGS.conf is missing it will be created from CONF/default.conf plus some defaults
+settings-read-or-create()
+{
+o settings-create "$1"
+# read the config.  Yes, sorry, silly simple for now
+o . <(sed -n 's/^#LXC[[:space:]]*/LXC_/p' "$1")
+}
 
+# Create the CONF/lxc-$CONTAINER.config if it not already exists
+settings-create()
+{
+[ -s "$1" ] && return
+local S
+o conf-create "CONF/lxc-$SETTINGS.conf"
+o touch "$1"		# create inode
+o v S stat -tLc %i "$1"	# get inode number
+o awk -vS="$S" '	# put inode number into ethernet
+BEGIN		{ X=sprintf("%06x", S) }
+$1~/\.hwaddr$/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2); if (x=="") x="00"; sub(/:xx/,x) } }
+		{print}
+' "CONF/lxc-$SETTINGS.conf" >> "$1"
+}
+
+# Create the CONF/lxc-$SETTINGS.conf if it not already exists
+conf-create()
+{
+[ -s "$1" ] && return
+mustnotexit "$1"
+WARN creating "$1" with defaults
+
+DEFAULTS
+#LXC_REPO=http://192.168.93.8:3142/deb.debian.org/debian/
+o . <(sed -n 's/^#LXC[[:space:]]*/LXC_/p' "CONF/defaults.conf")
+
+{
+printf '#Setting:       %q\n' "$SETTINGS"
+printf '#created for:   %q\n' "$CONTAINER"
+printf '#LXC#%11s=%q\n' SUITE buster VARIANT minbase KEYS debian-archive-keyring.gpg REPO http://192.168.93.8:3142/deb.debian.org/debian/ INCLUDES vim
+
+printf '#defaults from: %q\n' "$(o readlink -e -- CONF/default.conf)"
+EOF
+o sed -e '/^#/d' -e '/^[[:space:]]*$/d' CONF/default.conf
+} > "$1"
+}
+
+#
+# MAIN
+#
+
+# prepare the environment
+ov REL dirname -- "$0"
+ov HERE readlink -e -- "$REL"
+o cd "$HERE"
+
+o check-BIN
+[ -d LXC ] || o setup-LXC LXC
+[ -d CONF ] || o setup-CONF CONF
+[ -f CONF/default.conf ] || o setup-DEFAULT CONF/default.conf
+o check-DEFAULT
+
+# get commandline args, else present usage
 CONTAINER="$1"
 SETTINGS="${2:-$1}"
 
-[ -z "$1" ] || usage
-
-v REL dirname -- "$0"
-v HERE readlink -e -- "$REL"
-cd "$HERE"
+[ -n "$SETTINGS" ] || usage
 
 # Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
 # Hopefully "mmdebstrap" continues to use $PATH for them,
 # as else it would be more easy to just re-invent something like mmdebstrap from scratch.
 export PATH="$HERE/bin:$PATH"
 
-settings-read
-lxc-container-config
-lxc-container-debian-keyring
-lxc-container-mmdebstrap
+# Do the install
+o settings-read-or-create "CONF/lxc-$CONTAINER.config"
+o lxc-container-config
+o lxc-container-debian-keyring
+o lxc-container-mmdebstrap
 
-
+# done
+:
+return 0
+exit 0
 
 
 
@@ -154,7 +253,6 @@ printf -vD '%s.%(%Y%m%d-%H%M%S)T' "$L/$C" -1
 
 P="$D/trust.d/"
 printf -vA '"%q"' "$P"
-printf -vX '%06x' "$(stat -tLc %i "$D")"
 
 mkdir "$D" "$P"
 for a in /usr/share/keyrings
@@ -197,10 +295,6 @@ EOF
 # 00163e is Xensource, Inc.:
 #lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx`
 
-awk -vX="$X" '
-/:xx/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2); if (x=="") x="00"; sub(/:xx/,x) } }
-			{print}
-' $HOME/.config/lxc/default.conf
 } >"$D/config"
 
 printf -- '--------------------------------\n%q\n--------------------------------\n' "$D"
