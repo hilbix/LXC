@@ -1,0 +1,29 @@
+#!/bin/bash
+
+ME="$(basename "$0")" || exit
+
+STDOUT() { local e=$?; printf '%q' "$1"; [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
+STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
+OOPS() { STDERR OOPS: "$@"; exit 23; }
+x() { "$@"; }
+o() { x "$@" || OOPS rc=$?: "$@"; }
+
+
+case "$ME" in
+(newgidmap)	TAG=g;;
+(newuidmap)	TAG=u;;
+(*)		OOPS internal error: "$ME";;
+esac
+
+MAP=$(o awk -vTAG="$TAG" '$1=="lxc.idmap" && $2=="=" && $3==TAG { $1=""; $2=""; $3=""; printf "%s", $0 }' "$HOME/.config/lxc/default.conf") || exit
+read -a ARGS <<<"$MAP" || OOPS cannot parse "$MAP"
+{
+printf 'WAS: %q' "$ME"
+printf ' %q' "$@"
+printf '\n'
+printf 'NOW: %q' "$ME"
+printf ' %q' "$1" "${ARGS[@]}"
+printf '\n'
+} >&2
+exec "/usr/bin/$ME" "$1" "${ARGS[@]}"
+
