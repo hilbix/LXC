@@ -1,8 +1,40 @@
 #!/bin/bash
+#
+#U Usage: {ARG0} container [type]
+#U	- If settings/type is missing, settings/container is used
+#U	- If settings/container is missing, settings/DEFAULT is used
 
-set -e
+STDOUT() { local e=$?; printf '%q' "$1"; [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
+STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
+OOPS() { STDERR OOPS: "$@"; exit 23; }
+x() { "$@"; }
+o() { x "$@" || OOPS rc=$?: "$@"; }
 
-cd "$(dirname -- "$0")"
+if 
+
+CONTAINER="$1"
+SETTINGS="${2:-$1}"
+
+for a in awk mmdebstrap newgidmap newuidmap lxc-ls
+do
+	which "$a" >/dev/null || OOPS this needs "$a" installed
+done
+
+usage()
+{
+  awk -vARG0="${0##*/}" '/^#U ?/ { sub(/^#U ?/,""); gsub(/{ARG0}/ARG0/); print }' "$0"
+  exit 42
+}
+
+[ -z "$1" ] || usage
+
+HERE="$(readlink -e -- "$(dirname -- "$0")")"
+cd "$HERE"
+
+# Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
+# Hopefully "mmdebstrap" continues to use $PATH for them,
+# as else it would be more easy to just re-invent something like mmdebstrap from scratch.
+export PATH="$HERE/bin:$PATH"
 
 C=buster
 T=buster
