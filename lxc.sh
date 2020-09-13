@@ -6,13 +6,48 @@
 
 set -C		# noclobber
 
-DEFAULTS()
+# calculate default values PREFIX_$name
+# They can be overwritten by environment variables LXC_$name
+: defaults PREFIX
+defaults()
 {
-LXC_SUITE=buster
-LXC_VARIANT=minbase
-LXC_KEYS=debian-archive-keyring.gpg
-LXC_REPO=http://deb.debian.org/debian/
-LXC_INCLUDES=vim		# comma separated
+local a b
+PARAM0=(SUITE VARIANT KEYS REPO INCLUDES)
+VALUE0=(buster minbase debian-archive-keyring.gpg http://deb.debian.org/debian/ vim)
+PARAM1=(INCLUDES)
+VALUE1=(vim)
+for a in "${!PARAM0[@]}"
+do
+	b="_${PARAM0[$a]}"
+	eval "$1$b=\"\${LXC$b:-\${VALUE0[\$a]}}\""
+done
+for a in "${!PARAM1[@]}"
+do
+	b="_${PARAM1[$a]}"
+	eval "$1$b=\"\${LXC$b-\${VALUE1[\$a]}}\""
+done
+}
+
+# read LXC data from file
+: data PREFIX file
+data()
+{
+defaults "$1"	# fills PARAM0 and PARAM1
+# read the config into PREFIX_VARIABLE.  Yes, sorry, silly simple for now
+o . <(sed -n "s/^#LXC[[:space:]]+/$1_/p" "$2")
+# PARAM0: Overwrite PREFIX_VARIABLE with LXC_VARIABLE from the environment
+for a in "${!PARAM0[@]}"
+do
+	b="_${PARAM0[$a]}"
+	eval "$1$b=\"\${LXC$b:-\${$1$b:-\${VALUE0[\$a]}}}\""
+done
+# PARAM1: Create , separated list from PREFIX_VARIABLE and LXC_VARIABLE
+for a in "${!PARAM1[@]}"
+do
+	b="_${PARAM1[$a]}"
+	eval "$1$b=\"\$$1$b,\$LXC$b\""
+	eval "$1$b=\"\${$1$b#,}\""
+done
 }
 
 # Quick'n'dirty standards
@@ -143,8 +178,7 @@ WARN check-DEFAULT not implemented: setting not checked yet
 settings-read-or-create()
 {
 o settings-create "$1"
-# read the config.  Yes, sorry, silly simple for now
-o . <(sed -n 's/^#LXC[[:space:]]*/LXC_/p' "$1")
+o data GET "$1"
 }
 
 # Create the CONF/lxc-$CONTAINER.config if it not already exists
@@ -165,21 +199,23 @@ $1~/\.hwaddr$/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2)
 # Create the CONF/lxc-$SETTINGS.conf if it not already exists
 conf-create()
 {
+local a b
 [ -s "$1" ] && return
 mustnotexit "$1"
 WARN creating "$1" with defaults
 
-DEFAULTS
-#LXC_REPO=http://192.168.93.8:3142/deb.debian.org/debian/
-o . <(sed -n 's/^#LXC[[:space:]]*/LXC_/p' "CONF/defaults.conf")
-
+o data DEF
 {
-printf '#Setting:       %q\n' "$SETTINGS"
-printf '#created for:   %q\n' "$CONTAINER"
-printf '#LXC#%11s=%q\n' SUITE buster VARIANT minbase KEYS debian-archive-keyring.gpg REPO http://192.168.93.8:3142/deb.debian.org/debian/ INCLUDES vim
-
-printf '#defaults from: %q\n' "$(o readlink -e -- CONF/default.conf)"
-EOF
+printf '# Setting:       %q\n' "$SETTINGS"
+printf '# Created for:   %q\n' "$CONTAINER"
+for a in "${PARAM0[@]}" "${PARAM1[@]}"
+do
+	echo "$a"
+done
+#	b="LXC_$a"
+#	printf '#LXC#%11s=%q\n' "$a" "${!b}"
+#done
+printf '# defaults from: %q\n' "$(o readlink -e -- CONF/default.conf)"
 o sed -e '/^#/d' -e '/^[[:space:]]*$/d' CONF/default.conf
 } > "$1"
 }
@@ -238,18 +274,7 @@ exit 0
 
 
 
-C=buster
-T=buster
-V=minbase
-K=debian-archive-keyring.gpg
-R=http://192.168.93.8:3142/deb.debian.org/debian/
-I=vim
-
-U="$(id -u)"
-G="$(id -g)"
-
-L="$(readlink -e -- LXC)"
-printf -vD '%s.%(%Y%m%d-%H%M%S)T' "$L/$C" -1
+#printf -vD '%s.%(%Y%m%d-%H%M%S)T' "$L/$C" -1
 
 P="$D/trust.d/"
 printf -vA '"%q"' "$P"
