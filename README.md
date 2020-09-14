@@ -4,31 +4,77 @@
 >
 > Below is how it shall look like in future.
 
+
 # LXC unprivileged containers
 
 This works around several shortcomings of LXC and mmdebstrap:
 
 - The way how to create working unprivileged containers is barely documented.  This here sums it up.
 - The mapped UIDs are taken from `~/.config/lxc/default.conf` instead of `/etc/subuid`+`/etc/subgid`
-- The latter are registries and can only be changed by `root`
-- while `default.conf` can be created by you as you like it.
-- `~/.config/lxc/default.conf` is way to complex for normal users, so this is can be created for you.
-- There are interactive questions to setup your LXC directory.
-- You can have different LXC directories which can share parts of the configuration etc.
+  - The latter are registries and can only be changed by `root`
+  - while `default.conf` can be changed (based on what is allowed in the registry) by you as you like.
+- `~/.config/lxc/default.conf` can be automatically created for you.
+- ~~There are interactive menus to all setup questions like your LXC directory.~~
+- You can have more than one checkouts (of this here) which then can have indipendent setups.
+
+This is not for things like Cubernetes or on system level.  This is meant entirely on user level.
+
+- LXC networking should be set up, see https://wiki.debian.org/LXC
 
 
 ## Usage
 
+See also: https://wiki.debian.org/LXC
+
+Following must be prepared as `root` user (this is for Debian or Ubuntu):
+
+```
+apt-get install lxc uidmap mmdebstrap debian-archive-keyring
+
+[ -f /etc/default/lxc-net ] || echo 'USE_LXC_BRIDGE="true"' >> /etc/default/lxc-net
+
+fgrep `lxc.net.0` /etc/lxc/default.conf || cat <<EOF >>/etc/lxc/default.conf
+lxc.net.0.type = veth
+lxc.net.0.link = lxcbr0
+lxc.net.0.flags = up
+lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
+EOF
+
+systemctl enable lxc-net
+systemctl restart lxc-net
+
+echo 'kernel.unprivileged_userns_clone=1' > /etc/sysctl.d/80-lxc-userns.conf
+sysctl --system
+```
+
+For each user allowed to use lxc-start (`$(id -u -n)` below refers to the user's login), do:
+
+printf '\n%q\t%q\t%q\t%q\n' "$(id -u -n)" veth lxcbr0 10 | sudo tee -a /etc/lxc/lxc-usernet
+
+Then, as the user:
+
 	cd
 	git clone https://github.com/hilbix/LXC.git
 	./lxc.sh
-	# Follow the white rabbit
 
-Later you can do:
+To create a container:
 
 	./lxc.sh $CONTAINER ${TYPE:-DEFAULT}
 
-There are no complex options.  Just run it and follow the white rabbit.
+There are no complex options.  Just run it and follow the white rabbit.  However ..
+
+.. for now this is not yet implemented.  Instead there are environmental variables with following defaults:
+
+	LXC_SUITE=buster
+	LXC_VARIANT=minbase
+	LXC_KEYS=debian-archive-keyring.gpg
+	LXC_REPO=http://deb.debian.org/debian/
+	# Comma separated list of additional packages to install
+	LXC_INCLUDE=vim
+
+Either use `export` to set them or invoke with the commandline, as usual:
+
+	LXC_INCLUDE=emacs ./lxc.sh test
 
 
 ## FAQ
