@@ -34,6 +34,8 @@ apt-get install lxc uidmap mmdebstrap debian-archive-keyring
 [ -f /etc/default/lxc-net ] || echo 'USE_LXC_BRIDGE="true"' >> /etc/default/lxc-net
 
 fgrep `lxc.net.0` /etc/lxc/default.conf || cat <<EOF >>/etc/lxc/default.conf
+# lxcbr0 is the default LXC bridge                                                                                                            
+# ETH Vendor 00163e is XENsource INC
 lxc.net.0.type = veth
 lxc.net.0.link = lxcbr0
 lxc.net.0.flags = up
@@ -67,9 +69,11 @@ There are no complex options.  Just run it and follow the white rabbit.  However
 
 	LXC_SUITE=buster
 	LXC_VARIANT=minbase
-	LXC_KEYS=debian-archive-keyring.gpg
 	LXC_REPO=http://deb.debian.org/debian/
-	# Comma separated list of additional packages to install
+	# Comma separated lists:
+	## APT keys:
+	LXC_KEYS=debian-archive-keyring.gpg
+	## additional packages to install
 	LXC_INCLUDE=vim
 
 Either use `export` to set them or invoke with the commandline, as usual:
