@@ -9,11 +9,11 @@
 
 This works around several shortcomings of LXC and mmdebstrap:
 
-- The way how to create working unprivileged containers is barely documented.  This here sums it up.
-- The mapped UIDs are taken from `~/.config/lxc/default.conf` instead of `/etc/subuid`+`/etc/subgid`
+- The way how to create working unprivileged containers from scratch is barely documented.
+- `~/.config/lxc/default.conf` can be automatically created for you.
+- The mapped UIDs are taken from the container config and not from `/etc/subuid`+`/etc/subgid`
   - The latter are registries and can only be changed by `root`
   - while `default.conf` can be changed (based on what is allowed in the registry) by you as you like.
-- `~/.config/lxc/default.conf` can be automatically created for you.
 - ~~There are interactive menus to all setup questions like your LXC directory.~~
 - You can have more than one checkouts (of this here) which then can have indipendent setups.
 
@@ -57,23 +57,29 @@ Then, as the user:
 
 	cd
 	git clone https://github.com/hilbix/LXC.git
-	./lxc.sh
+	LXC/create.sh
 
 To create a container:
 
-	./lxc.sh $CONTAINER ${TYPE:-DEFAULT}
+	LXC/create.sh $CONTAINER ${TYPE:-DEFAULT}
 
 There are no complex options.  Just run it and follow the white rabbit.  However ..
 
 .. for now this is not yet implemented.  Instead there are environmental variables with following defaults:
 
+	# User and Group the current user becomes
+	# set to -1 to not map
+	# set to 1000 for the standard first linux user
+	LXC_UID=0
+	LXC_GID=0
+	# Arguments to mmdebstrap (named after man mmdebstrap)
 	LXC_SUITE=buster
 	LXC_VARIANT=minbase
-	LXC_REPO=http://deb.debian.org/debian/
-	# Comma separated lists:
-	## APT keys:
+	LXC_MIRROR=http://deb.debian.org/debian/
+	# Additional comma separated settings:
+	## Keys to use for APT-GET:
 	LXC_KEYS=debian-archive-keyring.gpg
-	## additional packages to install
+	## List of packages to install
 	LXC_INCLUDE=vim
 
 Either use `export` to set them or invoke with the commandline, as usual:
