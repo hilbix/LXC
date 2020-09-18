@@ -12,8 +12,8 @@ set -C		# noclobber
 defaults()
 {
   local a b
-  PARAM0=(SUITE VARIANT CACHE REPO)
-  VALUE0=(buster minbase http:// deb.debian.org/debian/)
+  PARAM0=(UID GID SUITE VARIANT CACHE REPO)
+  VALUE0=(0 0 buster minbase http:// deb.debian.org/debian/)
   PARAM1=(KEYS INCLUDES)
   VALUE1=(debian-archive-keyring.gpg vim)
   for a in "${!PARAM0[@]}"
@@ -108,6 +108,8 @@ setup-CONF()
 }
 
 # Find entries of /etc/sub?id and output them the LXC way
+# Also map the own UID into some other UID of the target
+# so YOU become a certain user in the LXC
 # XXX TODO XXX this is shit in shit out, so it must be checked in check-DEFAULT
 : map2lxc 1:? 2:/etc/sub?id 3:?id 4:?name 5:[startvalue:-1]
 map2lxc()
@@ -161,6 +163,7 @@ lxc.idmap = u 0 $U 1
 lxc.idmap = g 0 $G 1
 #
 # More mapping from /etc/sub?id
+# where our $U is mapped to 
 #
 EOF
   o map2lxc u /etc/subuid "$U" "$N"
@@ -251,6 +254,9 @@ conf-create()
   } > "$1"
 }
 
+# Create the LXC/$CONTAINER/ skeleton
+# - populate trust.d/ with the correct GPG key for apt
+# - populate bin/ with our wrapped container binaries
 lxc-container-config()
 {
   local a b C P FOUND
@@ -290,24 +296,30 @@ lxc-container-config()
 
 lxc-container-mmdebstrap()
 {
-  local a ARGS I T
+  local a ARGS I C
 
   I=ifupdown,systemd-sysv,$GET_INCLUDES
   I="${I%,}"
-  ov T readlink -e "LXC/$CONTAINER/trust.d"
+  ov C readlink -e "LXC/$CONTAINER"
 
   ARGS=()
   ARGS+=(-v)
   ARGS+=(--debug)
   ARGS+=("--variant=$GET_VARIANT")
   ARGS+=("--include=$I")
-  ARGS+=("--aptopt=Dir::Etc::TrustedParts \"$T\";")
+  ARGS+=("--aptopt=Dir::Etc::TrustedParts \"$C/trust.d/\";")
   ARGS+=("$GET_SUITE")
   ARGS+=("$1")
   for a in ${GET_REPO/,/ }
   do
 	ARGS+=("$GET_CACHE$a")
   done
+
+  # Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
+  # Hopefully "mmdebstrap" continues to use $PATH for them,
+  # as else it would be more easy to just re-invent something like mmdebstrap from scratch.
+  export PATH="$C/bin:$PATH"
+
   o mmdebstrap "${ARGS[@]}"
 }
 
@@ -334,11 +346,6 @@ CONTAINER="$1"
 SETTINGS="${2:-$1}"
 
 [ -n "$SETTINGS" ] || usage
-
-# Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
-# Hopefully "mmdebstrap" continues to use $PATH for them,
-# as else it would be more easy to just re-invent something like mmdebstrap from scratch.
-export PATH="$HERE/bin:$PATH"
 
 # Do the install
 # (this perhaps is not elaborate enough yet and might change/improve in future)
