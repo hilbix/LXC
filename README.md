@@ -1,8 +1,6 @@
-> This is partially not completed yet.
+> **This is partially incomplete!**
 >
-> However, it works most of the time, as long as you do not want different defaults.
->
-> Below is how it shall look like in future.
+> Some features/commands/etc. noted below might not exist yet.
 
 
 # LXC unprivileged containers
@@ -11,7 +9,7 @@ This works around several shortcomings of LXC and mmdebstrap:
 
 - The way how to create working unprivileged containers from scratch is barely documented.
 - `~/.config/lxc/default.conf` can be automatically created for you.
-- The mapped UIDs are taken from the container config and not from `/etc/subuid`+`/etc/subgid`
+- The mapped UIDs are taken from the container config and not from `/etc/subuid`+`/etc/subgid` as usual
   - The latter are registries and can only be changed by `root`
   - while `default.conf` can be changed (based on what is allowed in the registry) by you as you like.
 - ~~There are interactive menus to all setup questions like your LXC directory.~~
@@ -57,34 +55,42 @@ Then, as the user:
 
 	cd
 	git clone https://github.com/hilbix/LXC.git
-	LXC/create.sh
+	ln -s --relative LXC/bin/lxc.sh ~/bin/LXC
+	LXC setup
 
-To create a container:
+This initializes everything and shows you the usage.  Then:
 
-	LXC/create.sh $CONTAINER ${TYPE:-DEFAULT}
+	LXC create CONTAINER
 
-There are no complex options.  Just run it and follow the white rabbit.  However ..
+To run a command in the container:
 
-.. for now this is not yet implemented.  Instead there are environmental variables with following defaults:
+	LXC run CONTAINER command args..
+	# creates `LXC/CONF/CONTAINER.sh`.
 
-	# User and Group the current user becomes
-	# set to -1 to not map
-	# set to 1000 for the standard first linux user
-	LXC_UID=0
-	LXC_GID=0
-	# Arguments to mmdebstrap (named after man mmdebstrap)
-	LXC_SUITE=buster
-	LXC_VARIANT=minbase
-	LXC_MIRROR=http://deb.debian.org/debian/
-	# Additional comma separated settings:
-	## Keys to use for APT-GET:
-	LXC_KEYS=debian-archive-keyring.gpg
-	## List of packages to install
-	LXC_INCLUDE=vim
+Additional commands:
 
-Either use `export` to set them or invoke with the commandline, as usual:
+	LXC start CONTAINER	# start container
+	LXC stop CONTAINER	# stop container
+	LXC run CONTAINER cmd	# run CMD in container
+	LXC root CONTAINER cmd	# run CMD in container as root
+	LXC list		# list all containers
+	LXC stop		# list started containers
+	LXC start		# list stopped containers
 
-	LXC_INCLUDE=emacs ./lxc.sh test
+Notes:
+
+- `run` starts the container if it is not already running
+  - it cannot stop the container, though, as you can always interrupt things
+
+There are no complex options.  Just invoke a command and follow the white rabbit.  However ..
+
+.. for now commands are not yet interactive.  So all options must be given via environment.
+In future this will keep the same if stdin is not a TTY (if invoked with `</dev/null`).
+
+For all the parameters see Usage output (for example run `LXC create`).
+Either use `export` to set variables or set them with the commandline, as usual:
+
+	LXC_INCLUDE=emacs LXC create test
 
 
 ## FAQ
