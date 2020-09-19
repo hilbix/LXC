@@ -1,8 +1,26 @@
 #!/bin/bash
 #
-#U Usage: {ARG0} container [type]
-#U	- If settings/type is missing, settings/container is used
-#U	- If settings/container is missing, settings/DEFAULT is used
+#U Usage: {ARG0} $CONTAINER [$TEMPLATE]
+#U	- If $TEMPLATE is missing, $CONTAINER is used as $TEMPLATE
+#U	- If CONF/lxc-$CONTAINER.config is missing, it is created from CONF/lxc-$CONTAINER.conf
+#U	- If CONF/lxc-$CONTAINER.conf is missing, it is created from CONF/lxc-$TEMPLATE.conf
+#U	- If CONF/lxc-$TEMPLATE.conf is missing, it is created from CONF/default.conf
+#U	- If CONF/default.conf is missing, it is created from /etc/lxc/default.conf
+#U
+#U Container parameters are taken from the template and can be overwritten in the environment:
+#U	# Your UID/GID in the container, use -1 to not map
+#U	# Default: root.  In Linux the first user usually is 1000/1000
+#U	LXC_UID=0
+#U	LXC_GID=0
+#U	# Parameters to mmdebstrap, see man mmdebstrap
+#U	LXC_SUITE=buster
+#U	LXC_VARIANT=minbase
+#U	LXC_MIRROR=http://deb.debian.org/debian/
+#U	# Additional comma separated parameters to mmdebstrap:
+#U	## Keys to use for apt-get to check the signatures
+#U	LXC_KEYS=debian-archive-keyring.gpg
+#U	## List of additional packages to install
+#U	LXC_INCLUDE=vim
 
 set -C		# noclobber
 
