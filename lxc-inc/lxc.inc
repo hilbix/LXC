@@ -4,11 +4,23 @@
 [ -z "$LXC_DEBUG" ] || set -x
 set -C		# noclobber
 
+#
+# Defaults
+#
+# PARAM0: Single value
+PARAM0=(UID GID SUITE   VARIANT  SCHEMA)
+VALUE0=(0   0   buster  minbase  http://)
+# PARAM1: Comma separated multiple values
+PARAM1=(REPOS                   KEYS                        INCLUDES)
+VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
+
+
+MURX=0
 # Quick'n'dirty standards
 STDOUT() { local e=$?; printf '%q' "$1"; [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
 STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
 OOPS() { STDERR OOPS: "$@"; exit 23; }
-WARN() { STDERR WARN: "$@"; }
+WARN() { MURX=2; STDERR WARN: "$@"; }
 x() { "$@"; }
 o() { x "$@" || OOPS rc=$?: "$@"; }
 # touch $'hello world\n' && f="$(echo hell*)" && test -f "$f" || echo POSIX fail
@@ -27,10 +39,18 @@ o test -d "$BASE/lxc-inc"
 )
 }
 
+Help()
+{
+  o awk -vLXC="${2:-"$1"}" -vPATH="$BASE" '
+	$2=="Usage:"	{ $2="Usage: " LXC }
+	/^#U ?/		{ sub(/^#U ?/,""); gsub(/{PATH}/, PATH); print }
+	' "$1"
+}
+
 # present usage.  DRY: Take from comments in this file
 Usage()
 {
-  awk -vARG0="${LXC_USAGE:-"${0##*/}"}" -vPATH="$BASE" '/^#U ?/ { sub(/^#U ?/,""); gsub(/{ARG0}/, ARG0); gsub(/{PATH}/, PATH); print }' "$0"
+  Help "$0" "${LXC_USAGE:-"${0##*/}"}"
   exit 42
 }
 
@@ -61,49 +81,106 @@ settings()
 {
   local a b
 
-  # PARAM0: Single value
-  PARAM0=(UID GID SUITE   VARIANT  CACHE    REPO)
-  VALUE0=(0   0   buster  minbase  http://  deb.debian.org/debian/)
-  # PARAM1: Comma separated multiple values
-  PARAM1=(KEYS                        INCLUDES)
-  VALUE1=(debian-archive-keyring.gpg  vim)
-
   # Preset defaults
   for a in "${!PARAM0[@]}"
   do
 	b="_${PARAM0[$a]}"
-	eval "$1$b=\"\${VALUE0[\$a]}\""
+	eval "$1$b=\"\${VALUE0[\"\$a\"]}\""
   done
   for a in "${!PARAM1[@]}"
   do
 	b="_${PARAM1[$a]}"
-	eval "$1$b=\"\${VALUE1[\$a]}\""
+	eval "$1$b=\"\${VALUE1[\"\$a\"]}\""
   done
 
   # Now (possibly) override the values by the files
-  o . <(o awk -vLIST="${PARAM0[*]} ${PARAM1[*]}" '/^#LXC#/	{
-	}
-	' "${@:2}"-n "s/^#LXC#[[:space:]]*/$1_/p" "$2")
+  o . <(o awk -vPREF="$1_" -vLIST="${PARAM0[*]} ${PARAM1[*]}" '
+	BEGIN		{
+			gsub(/,/," ", LIST);
+			n = split(LIST, k)
+			while (--n>=0)
+				vars[k[n+1]]=1
+			}
+	/^#LXC#/	{
+			gsub(/#LXC#[[:space:]]*/,"");
+			v=$0
+			gsub(/[[:space:]]*=.*$/, "", v);
+			if (v!="" && vars[v])
+				print PREF $0
+			else
+				print FILENAME ":" FNR ": unknown variable ignored: " v >"/dev/stderr"
+			}
+	' "${@:2}"
+	)
 
   # Singular values must not be empty
   for a in "${!PARAM0[@]}"
   do
 	b="_${PARAM0[$a]}"
-	eval "$1$b=\"\${LXC$b:-\"\${$1$b:-\"\${VALUE[\$a]}\"}\"}\""
+	eval "$1$b=\"\${LXC$b:-\"\${$1$b:-\"\${VALUE[\"\$a\"]}\"}\"}\""
   done
   # Comma separated values get LXC_var appended
   for a in "${!PARAM1[@]}"
   do
 	b="_${PARAM1[$a]}"
-	eval "$1$b=\"\$$1$b,\${LXC$b}\""
-	eval "$1$b=\"\${$1$b%,}"
+	eval "$1$b=\"\${$1$b},\${LXC$b}\""
+	eval "$1$b=\"\${$1$b%,}\""
   done
+}
+
+# check for needed binaries being in PATH
+# Note:  We change the PATH, this must happen afterwards, as we want to replace some of the binaries with our patched version
+check-BIN()
+{
+  local a
+
+  for a in			\
+  	ln			\
+	awk			\
+	mmdebstrap		\
+	newgidmap newuidmap	\
+	lxc-ls			\
+	;
+  do
+	which "$a" >/dev/null || OOPS this needs "$a" installed
+  done
+}
+
+mustnotexist()
+{
+  [ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$HERE:" "$1" exists: "${@:2}"
+}
+
+# Create the directory or softlink to LXC.  This is where the containers are stored.
+setup-LXC()
+{
+  mustnotexist "$1"
+  WARN setup-LXC not yet completed.  Creating default "$1"/
+  o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
+}
+
+# Check the default LXC setting for possible errors or unknown parts
+check-DEFAULT()
+{
+  WARN check-DEFAULT not implemented: setting not checked yet
+  # XXX TODO XXX check network
+  # XXX TODO XXX check idmaps for enough range
 }
 
 ov ME readlink -e "$0"
 BASE="${ME%/bin/*}"
 
 check-env || OOPS please use softlinks: cannot detect install folder of "$0"
+o check-BIN
+
+case "$1" in
+(-h|--help)	Usage;;
+esac
+
+[ -d "$BASE/LXC"               ] || o setup-LXC     "$BASE/LXC"
+[ -d "$BASE/CONF"              ] || o setup-CONF    "$BASE/CONF"
+[ -f "$BASE/CONF/default.conf" ] || o setup-DEFAULT "$BASE/CONF/default.conf"
+o check-DEFAULT
 
 return 0
 exit 0
@@ -144,68 +221,6 @@ exit 0
 
 
 
-
-
-
-
-
-# calculate default values PREFIX_$name
-# They can be overwritten by environment variables LXC_$name
-: defaults PREFIX
-defaults()
-{
-  local a b
-}
-
-# read LXC data from file
-: data PREFIX file
-data()
-{
-  defaults "$1"	# fills PARAM0 and PARAM1
-  # read the config into PREFIX_VARIABLE.  Yes, sorry, silly simple for now
-  o . <(o sed -n "s/^#LXC[[:space:]]+/$1_/p" "$2")
-  # PARAM0: Overwrite PREFIX_VARIABLE with LXC_VARIABLE from the environment
-  for a in "${!PARAM0[@]}"
-  do
-	b="_${PARAM0[$a]}"
-	eval "$1$b=\"\${LXC$b:-\${$1$b:-\${VALUE0[\$a]}}}\""
-  done
-  # PARAM1: Create , separated list from PREFIX_VARIABLE and LXC_VARIABLE
-  for a in "${!PARAM1[@]}"
-  do
-	b="_${PARAM1[$a]}"
-	eval "$1$b=\"\$$1$b,\$LXC$b\""
-	eval "$1$b=\"\${$1$b%,}\""
-  done
-}
-
-# check for needed binaries being in PATH
-# Note:  We change the PATH, this must happen afterwards, as we want to replace some of the binaries with our patched version
-check-BIN()
-{
-  for a in			\
-	awk			\
-	mmdebstrap		\
-	newgidmap newuidmap	\
-	lxc-ls			\
-	;
-  do
-	which "$a" >/dev/null || OOPS this needs "$a" installed
-  done
-}
-
-mustnotexist()
-{
-  [ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$HERE:" "$1" exists: "${@:2}"
-}
-
-# Create the directory or softlink to LXC.  This is where the containers are stored.
-setup-LXC()
-{
-  mustnotexist "$1"
-  WARN setup-LXC not yet completed.  Creating default "$1"/
-  o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
-}
 
 # Create the directory or softlink to CONF.
 # This is a directory where we want to keep the configuration outside of the container space itself.
@@ -280,14 +295,6 @@ EOF
   o map2lxc g /etc/subgid "$G" "$S"
   } >> "$TMP" || OOPS cannot write "$TMP"
   o mv --backup=t "$TMP" "$1"
-}
-
-# Check the default LXC setting for possible errors or unknown parts
-check-DEFAULT()
-{
-  WARN check-DEFAULT not implemented: setting not checked yet
-  # XXX TODO XXX check network
-  # XXX TODO XXX check idmaps for enough range
 }
 
 # Read CONF/lxc-$CONTAINER.config (CONTAINER is the 1st commandline argument)
