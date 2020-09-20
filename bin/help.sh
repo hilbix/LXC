@@ -43,7 +43,7 @@ EOF
 done
 
 echo
-$had && exit $MURX
+$had && EXIT
 
 for a in "$BASE"/bin/*.sh
 do
@@ -59,5 +59,5 @@ do
 done
 
 echo
-finish
+EXIT
 
