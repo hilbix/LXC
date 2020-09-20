@@ -59,4 +59,5 @@ do
 done
 
 echo
+finish
 
