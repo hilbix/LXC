@@ -22,43 +22,24 @@ This is not for things like Cubernetes or on system level.  This is meant entire
 
 ## Usage
 
-See also: https://wiki.debian.org/LXC
+Be sure that everything in `lxc-checkconfig` is green.  Following two yellow lines can be ignored:
 
-Following must be prepared as `root` user (this is for Debian or Ubuntu):
+	CONFIG_NF_NAT_IPV4: missing
+	CONFIG_NF_NAT_IPV6: missing
 
-```
-apt-get install lxc uidmap mmdebstrap debian-archive-keyring
+For more information see: https://wiki.debian.org/LXC
 
-[ -f /etc/default/lxc-net ] || echo 'USE_LXC_BRIDGE="true"' >> /etc/default/lxc-net
-
-fgrep `lxc.net.0` /etc/lxc/default.conf || cat <<EOF >>/etc/lxc/default.conf
-# lxcbr0 is the default LXC bridge                                                                                                            
-# ETH Vendor 00163e is XENsource INC
-lxc.net.0.type = veth
-lxc.net.0.link = lxcbr0
-lxc.net.0.flags = up
-lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
-EOF
-
-systemctl enable lxc-net
-systemctl restart lxc-net
-
-echo 'kernel.unprivileged_userns_clone=1' > /etc/sysctl.d/80-lxc-userns.conf
-sysctl --system
-```
-
-For each user allowed to use lxc-start (`$(id -u -n)` below refers to the user's login), do:
-
-printf '\n%q\t%q\t%q\t%q\n' "$(id -u -n)" veth lxcbr0 10 | sudo tee -a /etc/lxc/lxc-usernet
-
-Then, as the user:
+To install:
 
 	cd
 	git clone https://github.com/hilbix/LXC.git
-	ln -s --relative LXC/bin/lxc.sh ~/bin/LXC
+	make -C LXC install	# this does: ln -s --relative LXC/bin/lxc.sh ~/bin/LXC
 	LXC setup
 
-This initializes everything and shows you the usage.  Then:
+This assumes that `$HOME/bin/` is in your `$PATH`.
+`setup` prints everything you need to change on your system to successfully run unprivileged LXC containers.
+
+To create a container with default values:
 
 	LXC create CONTAINER
 
