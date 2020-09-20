@@ -18,5 +18,5 @@ ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 STDERR note: It is likely that setup is still missing some bits.
-finish
+EXIT
 
