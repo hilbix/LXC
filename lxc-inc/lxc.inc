@@ -113,7 +113,7 @@ settings()
 			else
 				print FILENAME ":" FNR ": unknown variable ignored: " v >"/dev/stderr"
 			}
-	' "${@:2}"
+	' "${@:2}" </dev/null
 	)
 
   # Singular values must not be empty
@@ -234,9 +234,9 @@ EOF
 finish()
 {
 case "$MURX" in
-(0)	STDOUT "$PART" finished successfully;;
-(2)	STDOUT "$PART" finished with warning;;
-(*)	STDOUT "$PART" finished with error;;
+(0)	STDERR "$PART" finished successfully;;
+(2)	STDERR "$PART" finished with warning;;
+(*)	STDERR "$PART" finished with error;;
 esac
 exit $MURX
 }
