@@ -45,3 +45,5 @@ do
 	printf '%12s = %q\n' "LXC_$a" "${!b}"
 done
 
+finish
+
