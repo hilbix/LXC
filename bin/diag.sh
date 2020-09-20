@@ -37,13 +37,20 @@ do
 	LIST+=("$b")
 done
 
-settings SET "${LIST[@]}"
+cat <<EOF
+# UID GID default to: 0 0
+#	0 means root.  In Linux the first user usually is 1000 1000
+# SUITE VARIANT default to: buster minbase
+# SCHEMA REPOS default to: http:// deb.debian.org/debian/
+# SCHEMA can be used for something like apt-cacher-ng like in:
+#	LXC_SCHEMA=http://192.168.0.1:3142/
+# REPOS is a comma separated list, each entry gets SCHEMA appended
+# KEYS is a comma separated list and defaults to: debian-archive-keyring.gpg
+# INCLUDES is a comma separated list and defaults to: vim
+EOF
 
-for a in "${PARAM0[@]}" "${PARAM1[@]}"
-do
-	b="SET_$a"
-	printf '%12s = %q\n' "LXC_$a" "${!b}"
-done
+o settings-get SET "${LIST[@]}"
+o settings-print SET
 
-finish
+EXIT
 
