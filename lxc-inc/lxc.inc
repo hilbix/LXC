@@ -28,6 +28,7 @@ o() { x "$@" || OOPS rc=$?: "$@"; }
 v() { eval "$1"='"$(x "${@:2}" && echo x)"' && eval "$1=\${$1%x}" && eval "$1=\${$1%\$'\\n'}"; }
 ov() { o v "$@"; }
 
+: check-env
 check-env()
 {
 (
@@ -39,6 +40,7 @@ o test -d "$BASE/lxc-inc"
 )
 }
 
+: Help script arg0
 Help()
 {
   o awk -vLXC="${2:-"$1"}" -vPATH="$BASE" '
@@ -48,6 +50,7 @@ Help()
 }
 
 # present usage.  DRY: Take from comments in this file
+: Usage
 Usage()
 {
   Help "$0" "${LXC_USAGE:-"${0##*/}"}"
@@ -130,6 +133,7 @@ settings()
 
 # check for needed binaries being in PATH
 # Note:  We change the PATH, this must happen afterwards, as we want to replace some of the binaries with our patched version
+: check-BIN
 check-BIN()
 {
   local a
@@ -146,12 +150,14 @@ check-BIN()
   done
 }
 
+: mustnotexist path message..
 mustnotexist()
 {
   [ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$HERE:" "$1" exists: "${@:2}"
 }
 
 # Create the directory or softlink to LXC.  This is where the containers are stored.
+: setup-LXC LXC
 setup-LXC()
 {
   mustnotexist "$1"
@@ -159,16 +165,85 @@ setup-LXC()
   o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
 }
 
+sep() { printf '%72s\n' '' | tr ' ' -; }
+
+# Print out a warning which can be quelched
+: squelch tag <<<message
+squelch()
+{
+  fgrep -sqx "$1" "$BASE/CONF/lxc.squelch" && return
+  MURX=2
+  while read -ru6 line
+  do
+	printf 'WARN: %s\n' "$line"
+  done 6< <(sep; STDOUT To not fix it and squelch following message use:; printf 'echo %q >%q\n' "$1" "$BASE/CONF/lxc.squelch"; sep; cat; sep)
+}
+
 # Check the default LXC setting for possible errors or unknown parts
 check-DEFAULT()
 {
-  WARN check-DEFAULT not implemented: setting not checked yet
-  # XXX TODO XXX check network
-  # XXX TODO XXX check idmaps for enough range
+  local a b
+
+  fgrep -sqx 'USE_LXC_BRIDGE="true"' /etc/default/lxc-net ] ||
+  squelch bridge <<'EOF'
+	/etc/default/lxc-net does not contain the line
+	USE_LXC_BRIDGE="true"
+
+	To fix try something like:
+	sudo tee -a /etc/default/lxc-net <<<'echo USE_LXC_BRIDGE="true"'
+EOF
+
+  fgrep -sq 'lxc.net.0.' /etc/lxc/default.conf ||
+  squelch defnet <<'EOF'
+	/etc/lxc/default.conf is missing the networking entry, like this:
+
+	# lxcbr0 is the default LXC bridge
+	# ETH Vendor 00163e is XENsource INC
+	lxc.net.0.type = veth
+	lxc.net.0.link = lxcbr0
+	lxc.net.0.flags = up
+	lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
+
+	To fix you can do:
+	sudo vim /etc/lxc/default.conf
+	# add something like the above 4 to 6 lines to it
+EOF
+
+  cmp - /proc/sys/kernel/unprivileged_userns_clone <<<1 ||
+  squelch userns <<'EOF'
+	/proc/sys/kernel/unprivileged_userns_clone is not set to 1.
+
+	To fix try something like:
+	sudo tee -a /etc/sysctl.d/80-lxc-userns.conf <<<'kernel.unprivileged_userns_clone=1'
+	sudo sysctl --system
+EOF
+
+  ov a printf '%q\t%q\t%q\t%q' "$(id -un)" veth lxcbr0 10
+  ov b printf '%q' "$a"
+  fgrep -sqx "$a" /etc/lxc/lxc-usernet ||
+  squelch usernet <<EOF
+	/etc/lxc/lxc-usernet perhas not contain your user.
+
+	To fix try someting like:
+	sudo tee -a /etc/lxc/lxc-usernet <<<$b
+	sudo systemctl enable lxc-net
+	sudo systemctl restart lxc-net
+EOF
+}
+
+finish()
+{
+case "$MURX" in
+(0)	STDOUT "$PART" finished successfully;;
+(2)	STDOUT "$PART" finished with warning;;
+(*)	STDOUT "$PART" finished with error;;
+esac
+exit $MURX
 }
 
 ov ME readlink -e "$0"
 BASE="${ME%/bin/*}"
+ov PART basename -- "$0" .sh
 
 check-env || OOPS please use softlinks: cannot detect install folder of "$0"
 o check-BIN
