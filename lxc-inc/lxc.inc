@@ -396,6 +396,8 @@ settings-create()
 
   ov S readlink -m "$BASE/CONF/lxc-$SETTINGS.conf"
   o conf-create "$S"
+  o settings-get TPL "$S"
+
   o touch "$1"		# create inode
   ov I stat -tLc %i "$1"	# get inode number
   ov P readlink -m "$BASE/LXC/$CONTAINER/rootfs"
@@ -413,6 +415,12 @@ EOF
   printf 'lxc.uts.name = %q\n' "$CONTAINER"
   printf 'lxc.rootfs.path = dir:%q\n' "$P"
   printf '#\n'
+  printf '# Settings from environment:\n'
+  for a in "${PARAM0[@]}" "${PARAM1[@]}"
+  do
+	b="TPL_$a"
+	printf '#LXC#%11s=%q\n' "$a" "${!b}"
+  done
   printf '# Settings from %q\n' "$S"
   printf '#\n'
   o awk -vI="$I" '	# put inode number into ethernet
@@ -504,9 +512,9 @@ lxc-container-mmdebstrap()
   ARGS+=("--aptopt=Dir::Etc::TrustedParts \"$C/trust.d/\";")
   ARGS+=("$GET_SUITE")
   ARGS+=("$1")
-  for a in ${GET_REPO/,/ }
+  for a in ${GET_REPOS/,/ }
   do
-	ARGS+=("$GET_CACHE$a")
+	ARGS+=("$GET_SCHEMA$a")
   done
 
   # Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
