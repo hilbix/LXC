@@ -1,11 +1,14 @@
 > **This is partially incomplete!**
 >
-> Some features/commands/etc. noted below might not exist yet.
+> Some features/commands/etc. noted below not yet exist.
 
 
 # LXC unprivileged containers
 
-This works around several shortcomings of LXC and mmdebstrap:
+This is not meant for Cubernetes or similar to run Linux containers on system level.
+Instead this is entirely meant to run Linux containers on user level only.
+
+This repository works around several shortcomings of plain LXC and mmdebstrap:
 
 - The way how to create working unprivileged containers from scratch is barely documented.
 - `~/.config/lxc/default.conf` can be automatically created for you.
@@ -13,31 +16,27 @@ This works around several shortcomings of LXC and mmdebstrap:
   - The latter are registries and can only be changed by `root`
   - while `default.conf` can be changed (based on what is allowed in the registry) by you as you like.
 - ~~There are interactive menus to all setup questions like your LXC directory.~~
-- You can have more than one checkouts (of this here) which then can have indipendent setups.
-
-This is not for things like Cubernetes or on system level.  This is meant entirely on user level.
-
-- LXC networking should be set up, see https://wiki.debian.org/LXC
+- You can have more than one checkouts (of this repository), which then can have indipendent setups.
 
 
 ## Usage
 
-Be sure that everything in `lxc-checkconfig` is green.  Following two yellow lines can be ignored:
+Be sure that everything in `lxc-checkconfig` (run it as normal user) is green.  Following two yellow lines can be ignored:
 
 	CONFIG_NF_NAT_IPV4: missing
 	CONFIG_NF_NAT_IPV6: missing
 
-For more information see: https://wiki.debian.org/LXC
+For more information how to prepare networking on system level see: https://wiki.debian.org/LXC
 
 To install:
 
 	cd
 	git clone https://github.com/hilbix/LXC.git
-	make -C LXC install	# this does: ln -s --relative LXC/bin/lxc.sh ~/bin/LXC
-	LXC setup
+	LXC/bin/setup.sh LXC	# installs $HOME/bin/LXC as a wrapper command
 
-This assumes that `$HOME/bin/` is in your `$PATH`.
 `setup` prints everything you need to change on your system to successfully run unprivileged LXC containers.
+
+Following assumes that `$HOME/bin/` is in your `$PATH` and you ran setup as shown above.
 
 To create a container with default values:
 
@@ -94,11 +93,13 @@ Follow the White Rabbit?
 WTF why?
 
 - Because I need it.
+- I am too anxious to run dangerous things (like Docker) outside of some securing container (even then it stays very risky).
 
 Secure?
 
+- This is true for things which come from DockerHub or similar external repositories.
 - This here should be as secure as Debian and `lxc-nsuserexec`, as it only uses what is already builtin into your OS.
-- Unlike `lxc-create -t download` it does not use any additional and possibly dangerous external third party source or registry.
+- Unlike `lxc-create -t download` it does not use any additional and possibly dangerous external third party sources or registry.
 - Running things like Maven/Bower/Android Studio outside of containers is like a Bungee Jump without rope.
 - But even with a rope it stays extremely dangerous, like driving an old car without Belts'n'Airbags.
 - Even if containers might protect you by chance, it still might hurt others.  It's like not wearing a COVID19 Mask.
