@@ -41,18 +41,24 @@ sep() { printf '%72s\n' '' | tr ' ' -; }
 : squelch tag <<<message
 squelch()
 {
-  fgrep -sqx "$1" "$BASE/CONF/lxc.squelch" && return
+  fgrep -sqx "$1" "$BASE/CFG/lxc.squelch" && return
   MURX=2
   while read -ru6 line
   do
 	printf 'WARN: %s\n' "$line"
-  done 6< <(sep; STDOUT To not fix it and squelch following message use:; printf 'echo %q >%q\n' "$1" "$BASE/CONF/lxc.squelch"; sep; cat; sep)
+  done 6< <(sep; STDOUT To not fix it and squelch following message use:; printf 'echo %q >%q\n' "$1" "$BASE/CFG/lxc.squelch"; sep; cat; sep)
 }
 
 : mustnotexist path message..
 mustnotexist()
 {
   [ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$PART:" "$1" exists: "${@:2}"
+}
+
+tarcopy()
+{
+  o set -o pipefail
+  o tar Ccf "$1" . | o tar Cxf "$2" -
 }
 
 
@@ -76,17 +82,39 @@ MURX=0
 # LXCs
 #
 
-# Find entries of /etc/sub?id and output them the LXC way                                                                                     
-# Also map the own UID into some other UID of the target
-# so YOU become a certain user in the LXC
+# Find entries of /etc/sub?id and output them as LXC configuration items
+# Also map your own UID/GID into some other UID of the target,
+# usually given as LXC_UID/LXC_GID (default: 0/0)
+# so your user can become a certain user in the LXC
 # XXX TODO XXX this is shit in shit out, so it must be checked in check-DEFAULT
-: map1lxc 1:? 2:/etc/sub?id 3:?id 4:?name 5:[startvalue:-1]
-map1lxc()
+: map2lxc 1:UG 2:/etc/subUGid 3:UID/GID 4:username/groupname [5:MAP_ID_to_not_if_-1]
+map2lxc()
 {
-  [ -s "$1" ] || OOPS mapping file "$2" missing, see SUB_UID in man useradd
-  awk -F: -vT="$0" -vU="$3" -vN="$4" -vC="${5:-1}" '
-	$0==U || $1==N  { print "lxc.idmap = " T " " C " " $2 " " $3; C+=$3 }
-	' "$1"
+  [ -s "$2" ] || OOPS mapping file "$2" missing, see SUB_UID in man useradd
+  # /etc/sub?id has format: name_or_id:startid:count
+  awk -F: -vT="$1" -vI="$3" -vN="$4" -vC="${5:-1}" '
+	BEGIN	{ start=0 }
+	function out(pos, n)
+	{
+		if (n<=0)
+			return
+		printf("lxc.idmap = %s %d %d %d\n", T, start, pos, n);
+		start	+= n
+	}
+	$1==N || $1==I	{
+		pos	= $2;
+		n	= $3;
+		if (C >= start && C < start+n)
+			{
+			m	= C-start
+			out(pos, m)
+			out(I, 1)
+			pos	-= m
+			n	-= m
+			}
+		out(pos, n)
+		}
+	' "$2"
 }
 
 #
@@ -101,7 +129,7 @@ o test ".$BASE" != ".$ME"
 o test -d "$BASE/bin"
 o test -d "$BASE/wrap"
 o test -d "$BASE/lxc-inc"
-# $BASE/CONF and $BASE/LXC might need setup
+# $BASE/CFG and $BASE/LXC might need setup
 )
 }
 
@@ -302,10 +330,10 @@ setup-LXC()
   o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
 }
 
-# Create the directory or softlink to CONF.
+# Create the directory or softlink to CFG.
 # This is a directory where we want to keep the configuration outside of the container space itself.
 # It makes sense to overlay this with the standard LXC configuration directory (so take default.conf always from ~/.config/lxc/).
-setup-CONF()
+setup-CFG()
 {
   [ -d "$1" ] && return
   mustnotexist "$1" no directory nor softlink to directory
@@ -354,11 +382,11 @@ setup-DEFAULT()
 # The outside user (you!) becomes "root" in a container (from outside without powers)
 # This way it becomes way more easy to interact with containers
 #
-lxc.idmap = u 0 $U 1
-lxc.idmap = g 0 $G 1
+#lxc.idmap = u 0 $U 1
+#lxc.idmap = g 0 $G 1
 #
 # More mapping from /etc/sub?id
-# where our $U is mapped to 
+# where our $U is mapped to additional ID ranges
 #
 EOF
   o map2lxc u /etc/subuid "$U" "$N"
@@ -372,21 +400,21 @@ EOF
 # MISC / Unsorted
 #
 
-# Read $BASE/CONF/lxc-$CONTAINER.config (CONTAINER is the 1st commandline argument)
+# Read $BASE/CFG/lxc-$CONTAINER.config (CONTAINER is the 1st commandline argument)
 # This is a hybrid:
 # - It is the lxc.container.conf
 # - It also contans the container settings for this script
 # If the config file is missing
 # - It will be created.
-# - The template to use is taken from CONF/lxc-$SETTINGS.conf (SETTINGS is 2nd commandline argument)
-# - If $BASE/CONF/lxc-$SETTINGS.conf is missing it will be created from CONF/default.conf plus some defaults
+# - The template to use is taken from CFG/lxc-$SETTINGS.conf (SETTINGS is 2nd commandline argument)
+# - If $BASE/CFG/lxc-$SETTINGS.conf is missing it will be created from CFG/default.conf plus some defaults
 settings-read-or-create()
 {
   o settings-create "$1"
   o settings-get GET "$1"
 }
 
-# Create the $BASE/CONF/lxc-$CONTAINER.config if it not already exists
+# Create the $BASE/CFG/lxc-$CONTAINER.config if it not already exists
 settings-create()
 {
   local S I P
@@ -394,7 +422,7 @@ settings-create()
   [ -s "$1" ] && return
   mustnotexist "$1" not a nonempty file nor softlink to some
 
-  ov S readlink -m "$BASE/CONF/lxc-$SETTINGS.conf"
+  ov S readlink -m "$BASE/CFG/lxc-$SETTINGS.conf"
   o conf-create "$S"
   o settings-get TPL "$S"
 
@@ -432,7 +460,7 @@ EOF
   } >> "$1"
 }
 
-# Create the CONF/lxc-$SETTINGS.conf if it not already exists
+# Create the CFG/lxc-$SETTINGS.conf if it not already exists
 conf-create()
 {
   local a b D
@@ -440,7 +468,7 @@ conf-create()
   mustnotexist "$1" container already exists
   WARN creating "$1" with defaults
 
-  ov D readlink -e "$BASE/CONF/default.conf"
+  ov D readlink -e "$BASE/CFG/default.conf"
   o settings-get DEF "$D"
   {
   printf '# Setting:       %q\n' "$SETTINGS"
@@ -465,7 +493,7 @@ lxc-container-config()
   local a b C P FOUND
 
   mustnotexist "$BASE/LXC/$CONTAINER" container name already taken.  Try command list
-  o mkdir -p "$BASE/LXC/$CONTAINER" "$BASE/LXC/$CONTAINER/trust.d" "$BASE/LXC/$CONTAINER/rootfs"
+  o mkdir -p "$BASE/LXC/$CONTAINER" "$BASE/LXC/$CONTAINER/trust.d" "$BASE/LXC/$CONTAINER/bin" "$BASE/LXC/$CONTAINER/rootfs"
   ov C readlink -e "$1"
   ov P readlink -e "$BASE/LXC/$CONTAINER/rootfs"
   {
@@ -494,6 +522,8 @@ lxc-container-config()
 	[ -s "$FOUND" ] || OOPS cannot find source of "$a"
 	o ln -s "$FOUND" "$BASE/LXC/$CONTAINER/trust.d/"
   done
+
+  o tarcopy "$BASE/wrap" "$BASE/LXC/$CONTAINER/bin"
 }
 
 lxc-container-mmdebstrap()
@@ -542,8 +572,8 @@ case "$1" in
 esac
 
 o setup-LXC     "$BASE/LXC"
-o setup-CONF    "$BASE/CONF"
-o setup-DEFAULT "$BASE/CONF/default.conf"
+o setup-CFG     "$BASE/CFG"
+o setup-DEFAULT "$BASE/CFG/default.conf"
 o check-DEFAULT
 
 :
