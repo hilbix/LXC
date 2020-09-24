@@ -92,7 +92,7 @@ map2lxc()
 {
   [ -s "$2" ] || OOPS mapping file "$2" missing, see SUB_UID in man useradd
   # /etc/sub?id has format: name_or_id:startid:count
-  awk -F: -vT="$1" -vI="$3" -vN="$4" -vC="${5:-1}" '
+  awk -F: -vT="$1" -vI="$3" -vN="$4" -vC="${5:-"-1"}" '
 	BEGIN	{ start=0 }
 	function out(pos, n)
 	{
@@ -109,7 +109,7 @@ map2lxc()
 			m	= C-start
 			out(pos, m)
 			out(I, 1)
-			pos	-= m
+			pos	+= m
 			n	-= m
 			}
 		out(pos, n)
