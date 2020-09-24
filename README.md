@@ -45,7 +45,7 @@ To create a container with default values:
 To run a command in the container:
 
 	LXC run CONTAINER command args..
-	# creates `LXC/CONF/CONTAINER.sh`.
+	# creates `LXC/CFG/CONTAINER.sh`.
 
 Additional commands:
 
@@ -78,8 +78,8 @@ Either use `export` to set variables or set them with the commandline, as usual:
 - `bin/` use softlinks to the scripts there or add this directory to `$PATH`
   - usually `bin/lxc.sh` is linked to `~/bin/LXC`, but name does not matter
 - `lxc-inc/` are common includes for the scripts, position autodetected from the softlinks
-- `wrap/` are the templates for the wrappers generated in `CONF/`
-- `CONF` will be created by the scripts and is normally a softlink to `~/.config/lxc`
+- `wrap/` are the templates for the wrappers generated in `CFG/`
+- `CFG` will be created by the scripts and is normally a softlink to `~/.config/lxc`
 - `LXC` will be created by the scripts and is normallt a softlink to `~/.local/share/lxc`
 
 
