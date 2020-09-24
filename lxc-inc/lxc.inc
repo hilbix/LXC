@@ -326,7 +326,7 @@ setup-LXC()
 {
   [ -d "$1" ] && return
   mustnotexist "$1" no directory nor softlink to directory
-  WARN interactive LXC setup of yet completed.  Creating default "$1"/
+  WARN interactive LXC setup not yet completed.  Creating default "$1"/
   o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
 }
 
