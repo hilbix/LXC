@@ -1,3 +1,4 @@
 *.swp
-/CONF
+/.TMP.*
+/CFG
 /LXC
