@@ -64,6 +64,6 @@ setup()
 
 [ -z "$1" ] && check || setup "${1:-LXC}"
 
-STDERR note: It is likely that setup is still missing some bits.
+STDERR note: Setup still needs a lot improvement.
 EXIT
 
