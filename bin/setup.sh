@@ -16,10 +16,9 @@
 # This Works is placed under the terms of the Copyright Less License,
 # see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 
+LXC_ARGS=-1
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
-
-[ 1 -ge $# ] || Usage
 
 note()
 {
@@ -38,7 +37,7 @@ note()
 
 check()
 {
-  ov CMP readlink -e "$BASE/bin/lxc.sh"
+  ov CMP readlink -e "$LXC_BASE/bin/lxc.sh"
   for a in "$HOME"/bin/*
   do
 	[ -L "$a" ] || continue
@@ -58,12 +57,12 @@ check()
 
 setup()
 {
-  o check-name "$1"
+  o LXCvalid "$1"
   ov a readlink -m "$HOME/bin/$1"
 }
 
 [ -z "$1" ] && check || setup "${1:-LXC}"
 
 STDERR note: Setup still needs a lot improvement.
-EXIT
+LXCexit
 
