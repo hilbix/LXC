@@ -18,10 +18,12 @@
 # This Works is placed under the terms of the Copyright Less License,
 # see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 
+LXC_ARGS=1-
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
-[ 0 -lt $# ] || Usage
+LXCcontainer "$1"
+shift
 
 ARGS=()
 if [ '.*' != ".$LXC_ENV" ]
@@ -32,5 +34,5 @@ then
 		ARGS+=(--keep-var "$a")
 	done
 fi
-exec lxc-attach "${ARGS[@]}" -v debian_chroot="$1" -- "$@"
+exec lxc-attach -n "$LXC_CONTAINER" "${ARGS[@]}" -v debian_chroot="$LXC_CONTAINER" -- "$@"
 
