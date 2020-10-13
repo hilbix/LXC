@@ -6,21 +6,23 @@
 # This Works is placed under the terms of the Copyright Less License,
 # see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 
+LXC_ARGS=-1
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 had=false
 for a
 do
-	check-name "$a" && [ -x "$BASE/bin/$a.sh" ] || WARN unknown command: "$a" || continue
+	LXClocate CMD "$a" || WARN unknown command: "$a" || continue
+
 	$had ||
 	cat <<EOF
 
 Notes for all commands:
-- Usage is printed if the first arg is -h or --help
-- All recognize environment variables, see: LXC diag
-- Most automatically invoke 'setup' if needed
-- Scripts are located at $BASE/bin/
+- Usage is printed for commandline arguments -h or --help
+- All commands allow environment variables, see: LXC diag
+- Most commands automatically invoke 'setup' if needed
+- Commands' scripts are located at $LXC_BASE/bin/
 
 Standard RC if not noted otherwise:
 - 0 positive reply (command OK)
@@ -33,31 +35,44 @@ EOF
 	had=:
 	if	[ -z "$LXC_USAGE" ]
 	then
-		Help "$BASE/bin/$a.sh"
+		Help "$CMD"
 	elif [ lxc = "$a" ]
 	then
-		Help "$BASE/bin/$a.sh" "${LXC_USAGE%% *}"
+		Help "$CMD" "${LXC_USAGE%% *}"
 	else
-		Help "$BASE/bin/$a.sh" "${LXC_USAGE%% *} $a"
+		Help "$CMD" "${LXC_USAGE%% *} $a"
 	fi
 done
 
 echo
-$had && EXIT
+$had && LXCexit
 
-for a in "$BASE"/bin/*.sh
+LIST=()
+len=0
+for a in "$LXC_BASE"/bin/*.sh
 do
 	[ -x "$a" ] || continue
 	ov b basename -- "$a" .sh
-	o awk -vCMD="$b" -vBASE="$BASE" '
-		function out(s) { if (ARGS) printf "%-30s %s\n", CMD ARGS, s; ARGS="" }
+	o Human CMD "$b"
+	ov LINE awk -vCMD="$CMD" -vBASE="$LXC_BASE" '
+		function out(s) { if (ARGS) printf "%s\t%s\n", CMD ARGS, s; ARGS="" }
 					{ gsub(/{PATH}/, BASE) }
-		$1=="#U" && $2=="Usage:" { $1=""; $2=""; $3=""; gsub(/^  */," "); ARGS=$0; next; }
-		$1=="#U" && ARGS	{ $1=""; sub(/^ /,"\t"); out($0) }
-		END			{ out() }
+					{ gsub(/\t/, " ") }
+					{ gsub(/   */, " ") }
+		$1=="#U" && $2=="Usage:" { $1=""; $2=""; sub(/^   */, " "); ARGS=$0; next; }
+		$1=="#U" && ARGS	{ $1=""; sub(/^ /,""); out($0) }
+		END			{ out("") }
 		' "$a"
+	LIST+=("$LINE")
+	LINE="${LINE%%$'\t'*}"
+	[ "$len" -lt "${#LINE}" ] && len="${#LINE}"
+done
+
+for a in "${LIST[@]}"
+do
+	printf '%-*s\t%s\n' "$len" "${a%%$'\t'*}" "${a#*$'\t'}"
 done
 
 echo
-EXIT
+LXCexit
 
