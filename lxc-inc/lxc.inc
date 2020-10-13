@@ -109,7 +109,7 @@ MvAway()
   local a
   for a
   do
-	[ ! -e "$a" ] || [ -L "$a" ] || continue
+	[ -e "$a" ] || [ -L "$a" ] || continue
 	o mv --backup=t -T -- "$a" "$a.old"
   done
   :
@@ -470,10 +470,10 @@ EOF
 # MISC / Unsorted
 #
 
-# If the config file is missing
+# If the config file CFG/lxc-$LXC_CONTAINER.conf is missing:
 # - It will be created.
 # - The template to use is taken from CFG/lxc-$LXC_TEMPLATE.conf (LXC_TEMPLATE is 2nd arg to lxc-create)
-# - If $LXC_BASE/CFG/lxc-$SETTINGS.conf is missing it will be created from CFG/default.conf plus some defaults
+# - If $LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf is missing it will be created from CFG/default.conf plus some defaults
 LXCsettings-create()
 {
   o settings-create
@@ -484,7 +484,7 @@ LXCsettings-create()
 # The config is a hybrid:
 # - It is the lxc.container.conf
 # - It also contans the container settings for this script here as comments
-: settings-read [VAR]
+: LXCsettings [VAR]
 LXCsettings()
 {
   NEED LXC_CONTAINER
@@ -494,18 +494,18 @@ LXCsettings()
 # Create the $LXC_BASE/CFG/lxc-$LXC_CONTAINER.config if it not already exists
 settings-create()
 {
-  NEED LXC_CONTAINER
-  local a C I P DIR="$LXC_BASE/LXC/$LXC_CONTAINER" S="$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config"
+  NEED LXC_CONTAINER LXC_TEMPLATE
+  local a I P C="$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config" T="$LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf"
 
   [ -s "$T" ] && return
   MustNotExist "$T" not a nonempty file nor softlink to some
 
   o conf-create
-  o settings-get TPL "$S"
+  o settings-get TPL "$T"
 
   o touch "$C"			# create inode
   ov I stat -tLc %i "$C"	# get inode number
-  ov P readlink -m "$DIR/rootfs"
+  ov P readlink -m "$LXC_BASE/LXC/$LXC_CONTAINER/rootfs"
   {
   printf '# Standard settings from %q\n' "$ME"
   cat <<EOF
@@ -534,21 +534,24 @@ EOF
 	$1~/\.hwaddr$/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2); if (x=="") x="00"; sub(/:xx/,":"x) } }
 			{print}
 	' "$S"
-  } >> "$T"
+  } >> "$C"
 }
 
-# Create the CFG/lxc-$SETTINGS.conf if it not already exists
+# Create the CFG/lxc-$LXC_TEMPLATE.conf if it not already exists
 conf-create()
 {
-  local a b D
-  [ -s "$1" ] && return
-  MustNotExist "$1" container already exists
-  WARN creating "$1" with defaults
+  NEED LXC_CONTAINER LXC_TEMPLATE
+  local a b D C="$LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf"
+
+  [ -s "$C" ] && return
+  MustNotExist "$C" container already exists
+  WARN creating "$C" with defaults
 
   ov D readlink -e "$LXC_BASE/CFG/default.conf"
-  o settings-read DEF "$D"
+  o settings-get DEF "$D"
+
   {
-  printf '# Setting:       %q\n' "$SETTINGS"
+  printf '# Setting:       %q\n' "$LXC_TEMPLATE"
   printf '# Created for:   %q\n' "$LXC_CONTAINER"
   printf '#\n'
   for a in "${PARAM0[@]}" "${PARAM1[@]}"
@@ -559,7 +562,7 @@ conf-create()
   printf '#\n'
   printf '# defaults from: %q\n' "$D"
   o sed -e '/^#/d' -e '/^[[:space:]]*$/d' "$D"
-  } > "$1"
+  } > "$C"
 }
 
 # Before call LXCsettings or LXCsettings-create
