@@ -101,7 +101,7 @@ MustNotExist()
 tarcopy()
 {
   o set -o pipefail
-  o tar Ccf "$1" . | o tar Cxf "$2" -
+  o tar Ccf "$1" - . | o tar Cxf "$2" -
 }
 
 MvAway()
