@@ -16,22 +16,20 @@
 # This Works is placed under the terms of the Copyright Less License,
 # see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 
+LXC_ARGS=1-2
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 # get commandline args, else present usage
-CONTAINER="$1"
-SETTINGS="${2:-$1}"
-
-[ -n "$SETTINGS" ] || Usage
-
+o LXCcontainer "$1"
+o LXCtemplate "${2:-$1}"
 
 # Do the install
 # (this perhaps is not elaborate enough yet and might change/improve in future)
-o settings-read-or-create "$BASE/CONF/lxc-$CONTAINER.config"
-o lxc-container-config "$BASE/CONF/lxc-$CONTAINER.config"
-o settings-print GET
-o lxc-container-mmdebstrap "$BASE/LXC/$CONTAINER/rootfs"
+o LXCsettings-create
+o LXCcontainer-setup
+o settings-print
+o LXCcontainer-mmdebstrap
 
-EXIT
+LXCexit
 
