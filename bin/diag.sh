@@ -25,14 +25,15 @@
 # This Works is placed under the terms of the Copyright Less License,
 # see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 
+LXC_ARGS=-
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 LIST=()
 for a
 do
-	o check-name "$a"
-	b="$BASE/LXC/$a/config"
+	LXCcontainer "$a"
+	b="$BASE/LXC/$LXC_CONTAINER/config"
 	[ -s "$b" ] || WARN cannot find "$b" || continue
 	LIST+=("$b")
 done
@@ -52,5 +53,5 @@ EOF
 o settings-get SET "${LIST[@]}"
 o settings-print SET
 
-EXIT
+LXCexit
 
