@@ -39,6 +39,7 @@ STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
 OOPS() { STDERR OOPS: "$@"; exit 23; }
 BUG() { OOPS internal error: "$@"; }
 NEED() { local a b; for a; do [ -n "${!a}" ] || BUG $a not set; done; }
+FAIL() { local e=$?; LXC_MURX=1; STDOUT FAIL: "$@"; return $e; }
 WARN() { local e=$?; LXC_MURX=2; STDERR WARN: "$@"; return $e; }
 ERR() { local e=$?; LXC_MURX=1; STDERR ERR: "$@"; return $e; }
 x() { local LC_ALL=C.UTF-8; export LC_ALL; "$@"; }
@@ -47,6 +48,7 @@ o() { x "$@" || OOPS rc=$?: "$@"; }
 # touch $'hello world\n' && v f  echo hell*   && test -f "$f" && echo POSIX corrected
 v() { eval "$1"='"$(x "${@:2}" && echo x)"' && eval "$1=\${$1%x}" && eval "$1=\${$1%\$'\\n'}"; }
 ov() { o v "$@"; }
+vb() { if x "${@:2}"; then eval "$1=true"; else eval "$1=false"; fi; }
 
 
 #
@@ -90,7 +92,7 @@ Squelch()
   while read -ru6 line
   do
 	printf 'WARN: %s\n' "$line"
-  done 6< <(sep; Human CMD squelch; STDOUT To not fix it and squelch following message use:; $CMD "$1"; sep; cat; sep)
+  done 6< <(sep; Human CMD squelch; STDOUT To not fix it and squelch following message use:; $LXC_CMD "$1"; sep; cat; sep)
 }
 
 : MustNotExist path message..
@@ -99,10 +101,24 @@ MustNotExist()
   [ ! -L "$1" ] && [ ! -e "$1" ] || OOPS "$LXC_CMD:" "$1" exists: "${@:2}"
 }
 
-tarcopy()
+# Copy something using 'tar' command
+: tarcopy SRC DEST
+TarCopy()
 {
   o set -o pipefail
   o tar Ccf "$1" - . | o tar Cxf "$2" -
+}
+
+# move SRC to DEST with backups, but just remove SRC if equal to DEST
+: MoveWithBackupComparing SRC DEST
+MoveWithBackupComparing()
+{
+  if	cmp -q -- "$@"
+  then
+	o rm -f -- "$1"
+	return
+  fi
+  o mv --backup=t -- "$@"
 }
 
 MvAway()
@@ -122,9 +138,11 @@ MvAway()
 #
 
 LXC_MURX=0
+: LXCexit
 LXCexit()
 {
 local err="${1:-$LXC_MURX}"
+[ -n "$LXC_QUIET" ] ||
 case "$err" in
 (''|*[^0-9]*)	BUG LXCexit cannot return "$err";;
 (0)	STDERR "$LXC_CMD" success;;
@@ -194,7 +212,17 @@ o test -d "$LXC_BASE/wrap"
 LXCvalid()
 {
   case "$1" in
-  (*[^0-9a-z_-])	;;
+  (*[^0-9a-z_-]*)	;;
+  (?*)			return 0;;
+  esac
+  OOPS "${@:2}:" "$1"
+}
+
+: LXCvalidU name message..
+LXCvalidU()
+{
+  case "$1" in
+  (*[^0-9a-zA-Z_-]*)	;;
   (?*)			return 0;;
   esac
   OOPS "${@:2}:" "$1"
@@ -223,6 +251,7 @@ check-BIN()
 }
 
 # Check the default LXC setting for possible errors or unknown parts
+: check-GLOBALS
 check-GLOBALS()
 {
   local a b
@@ -288,6 +317,9 @@ LXCcontainer()
   LXC_CONTAINER="$1"
   LXC_TEMPLATE="$1"
   LXCvalid "$LXC_CONTAINER" not a valid container name
+  LXC_CONTAINER_DIR="$LXC_BASE/LXC/$LXC_CONTAINER"
+  LXC_CONTAINER_CFG="$LXC_CONTAINER_DIR/config"
+  LXC_CONTAINER_TPL="$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config"
 }
 
 # set the LXC_TEMPLATE name to operate on (defaults to LXC_CONTAINER)
@@ -297,6 +329,7 @@ LXCtemplate()
   NEED LXC_CONTAINER
   LXC_TEMPLATE="${1:-"$LXC_CONTAINER"}"
   LXCvalid "$LXC_TEMPLATE" not a valid template name
+  LXC_TEMPLATE_FILE="$LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf"
 }
 
 # mix settings into PREFIX_names
@@ -465,7 +498,7 @@ EOF
   o map2lxc u /etc/subuid "$U" "$N"
   o map2lxc g /etc/subgid "$G" "$S"
   } >> "$TMP" || OOPS cannot write "$TMP"
-  o mv --backup=t "$TMP" "$1"
+  MoveWithBackupComparing "$TMP" "$1"
 }
 
 
@@ -473,42 +506,46 @@ EOF
 # MISC / Unsorted
 #
 
-# If the config file CFG/lxc-$LXC_CONTAINER.conf is missing:
+# If the config file $LXC_CONTAINER_TPL is missing:
 # - It will be created.
-# - The template to use is taken from CFG/lxc-$LXC_TEMPLATE.conf (LXC_TEMPLATE is 2nd arg to lxc-create)
-# - If $LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf is missing it will be created from CFG/default.conf plus some defaults
+# - The template to use is taken from $LXC_TEMPLATE_FILE (LXC_TEMPLATE is 2nd arg to lxc-create)
+# - If $LXC_TEMPLATE_FILE is missing it will be created from CFG/default.conf plus some defaults
 LXCsettings-create()
 {
   o settings-create
   o LXCsettings "$@"
 }
 
-# Read $LXC_BASE/CFG/lxc-$LXC_CONTAINER.config (see: lxc-container)
+# Read $LXC_CONTAINER_TPL (see: lxc-container)
 # The config is a hybrid:
 # - It is the lxc.container.conf
 # - It also contans the container settings for this script here as comments
 : LXCsettings [VAR]
 LXCsettings()
 {
-  NEED LXC_CONTAINER
-  o settings-get "${1:-GET}" "$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config"
+  NEED LXC_CONTAINER_TPL
+  o settings-get "${1:-GET}" "$$LXC_CONTAINER_TPL"
 }
 
-# Create the $LXC_BASE/CFG/lxc-$LXC_CONTAINER.config if it not already exists
+# Create the $LXC_CONTAINER_TPL if it not already exists
+# - The defaults are taken from $LXC_TEMPLATE_FILE (which also is created if missing)
+# Keep in mind:
+# - The template file created here is used to create the real container config when the container is created
+# - The lower 3 octets of the inode of this file here are used to create a virtual MAC address
 settings-create()
 {
-  NEED LXC_CONTAINER LXC_TEMPLATE
-  local a I P C="$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config" T="$LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf"
+  NEED LXC_CONTAINER_DIR LXC_CONTAINER_TPL LXC_TEMPLATE_FILE
+  local a I P
 
-  [ -s "$T" ] && return
-  MustNotExist "$T" not a nonempty file nor softlink to some
+  [ -s "$LXC_CONTAINER_TPL" ] && return
+  MustNotExist "$LXC_CONTAINER_TPL" not a nonempty file nor softlink to some
 
   o conf-create
-  o settings-get TPL "$T"
+  o settings-get TPL "$LXC_TEMPLATE_FILE"
 
-  o touch "$C"			# create inode
-  ov I stat -tLc %i "$C"	# get inode number
-  ov P readlink -m "$LXC_BASE/LXC/$LXC_CONTAINER/rootfs"
+  o touch "$LXC_CONTAINER_TPL"			# create inode
+  ov I stat -tLc %i "$LXC_CONTAINER_TPL"	# get inode number
+  ov P readlink -m "$LXC_CONTAINER_DIR/rootfs"
   {
   printf '# Standard settings from %q\n' "$ME"
   cat <<EOF
@@ -529,26 +566,26 @@ EOF
 	b="TPL_$a"
 	printf '#LXC#%11s=%q\n' "$a" "${!b}"
   done
-  printf '# Settings from %q\n' "$T"
+  printf '# Settings from %q\n' "$LXC_TEMPLATE_FILE"
   printf '#\n'
   o awk -vI="$I" '	# put inode number into ethernet
 	BEGIN		{ X=sprintf("%06x", I) }
 	/^#/		{ next }
 	$1~/\.hwaddr$/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2); if (x=="") x="00"; sub(/:xx/,":"x) } }
 			{print}
-	' "$T"
-  } >> "$C"
+	' "$LXC_TEMPLATE_FILE"
+  } >> "$LXC_CONTAINER_TPL"
 }
 
-# Create the CFG/lxc-$LXC_TEMPLATE.conf if it not already exists
+# Create the $LXC_TEMPLATE_FILE if it not already exists
 conf-create()
 {
-  NEED LXC_CONTAINER LXC_TEMPLATE
-  local a b D C="$LXC_BASE/CFG/lxc-$LXC_TEMPLATE.conf"
+  NEED LXC_CONTAINER LXC_TEMPLATE LXC_TEMPLATE_FILE
+  local a b D
 
-  [ -s "$C" ] && return
-  MustNotExist "$C" container already exists
-  WARN creating "$C" with defaults
+  [ -s "$LXC_TEMPLATE_FILE" ] && return
+  MustNotExist "$LXC_TEMPLATE_FILE" container already exists
+  WARN creating "$LXC_TEMPLATE_FILE" with defaults
 
   ov D readlink -e "$LXC_BASE/CFG/default.conf"
   o settings-get DEF "$D"
@@ -565,7 +602,7 @@ conf-create()
   printf '#\n'
   printf '# defaults from: %q\n' "$D"
   o sed -e '/^#/d' -e '/^[[:space:]]*$/d' "$D"
-  } > "$C"
+  } > "$LXC_TEMPLATE_FILE"
 }
 
 # Before call LXCsettings or LXCsettings-create
@@ -575,40 +612,38 @@ conf-create()
 : LXCcontainer-setup
 LXCcontainer-setup()
 {
-  NEED LXC_CONTAINER
-  local a b C P FOUND DIR="$LXC_BASE/LXC/$LXC_CONTAINER"
+  NEED LXC_CONTAINER_DIR
 
   Human LIST list
-  MustNotExist "$DIR" container name already taken.  Try: $LIST
+  MustNotExist "$LXC_CONTAINER_DIR" container name already taken.  Try: $LIST
   LXCcontainer-update
 }
 LXCcontainer-update()
 {
-  NEED LXC_CONTAINER
-  local a b C P FOUND DIR="$LXC_BASE/LXC/$LXC_CONTAINER"
+  NEED LXC_CONTAINER LXC_CONTAINER_TPL LXC_CONTAINER_DIR
+  local a b FOUND
 
-  o mkdir -p "$DIR" "$DIR/rootfs"
-  ov C readlink -e "$LXC_BASE/CFG/lxc-$LXC_CONTAINER.config"
-  ov P readlink -e "$DIR/rootfs"
-  o MvAway "$DIR/config"
+  o test  -e "$LXC_CONTAINER_TPL"
+  o mkdir -p "$LXC_CONTAINER_DIR" "$LXC_CONTAINER_DIR/rootfs"
+  o MvAway "$LXC_CONTAINER_DIR/config"
   {
-  printf '# From %q\n' "$C"
-  cat "$C"
+  printf '# From %q\n' "$LXC_CONTAINER_TPL"
+  cat "$LXC_CONTAINER_TPL"
   printf '#\n'
   printf '# Container settings (generated)\n'
   printf '#\n'
   printf 'lxc.uts.name = %q\n' "$LXC_CONTAINER"
-  printf 'lxc.rootfs.path = dir:%q\n' "$P"
+  printf 'lxc.rootfs.path = dir:%q\n' "$LXC_CONTAINER_DIR/rootfs"
   printf '#\n'
   for a in "${PARAM0[@]}" "${PARAM1[@]}"
   do
 	b="GET_$a"
 	printf '#LXC#%11s=%q\n' "$a" "${!b}"
   done
-  } >"$DIR/config"
+  } >"$LXC_CONTAINER_DIR/config"
 
-  o MvAway "$DIR/trust.d"
-  o mkdir "$DIR/trust.d"
+  o MvAway "$LXC_CONTAINER_DIR/trust.d"
+  o mkdir "$LXC_CONTAINER_DIR/trust.d"
   for a in $GET_KEYS
   do
 	FOUND=
@@ -617,12 +652,12 @@ LXCcontainer-update()
 		[ -s "$b$a" ] && ov FOUND readlink -e "$b$a"
 	done
 	[ -s "$FOUND" ] || OOPS cannot find source of "$a"
-	o ln -s "$FOUND" "$DIR/trust.d/"
+	o ln -s "$FOUND" "$LXC_CONTAINER_DIR/trust.d/"
   done
 
-  o MvAway "$DIR/bin"
-  o mkdir "$DIR/bin"
-  o tarcopy "$LXC_BASE/wrap" "$DIR/bin"
+  o MvAway "$LXC_CONTAINER_DIR/bin"
+  o mkdir "$LXC_CONTAINER_DIR/bin"
+  o TarCopy "$LXC_BASE/wrap" "$LXC_CONTAINER_DIR/bin"
 
   # XXX TODO XXX cleanups of the ".old" variants?
 }
@@ -634,21 +669,20 @@ LXCcontainer-update()
 : LXCcontainer-mmdebstrap
 LXCcontainer-mmdebstrap()
 {
-  NEED LXC_CONTAINER
-  local a ARGS I C DIR="$LXC_BASE/LXC/$LXC_CONTAINER"
+  NEED LXC_CONTAINER LXC_CONTAINER_DIR
+  local a ARGS I
 
   I="ifupdown,systemd-sysv,$GET_INCLUDES"
   I="${I%,}"
-  ov C readlink -e "$DIR"
 
   ARGS=()
   ARGS+=(-v)
   ARGS+=(--debug)
   ARGS+=("--variant=$GET_VARIANT")
   ARGS+=("--include=$I")
-  ARGS+=("--aptopt=Dir::Etc::TrustedParts \"$C/trust.d/\";")
+  ARGS+=("--aptopt=Dir::Etc::TrustedParts \"$LXC_CONTAINER_DIR/trust.d/\";")
   ARGS+=("$GET_SUITE")
-  ARGS+=("$C/rootfs")
+  ARGS+=("$LXC_CONTAINER_DIR/rootfs")
   for a in ${GET_REPOS/,/ }
   do
 	ARGS+=("$GET_SCHEMA$a")
@@ -657,7 +691,7 @@ LXCcontainer-mmdebstrap()
   # Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
   # Hopefully "mmdebstrap" continues to use $PATH for them,
   # as else it would be more easy to just re-invent something like mmdebstrap from scratch.
-  export PATH="$C/bin:$PATH"
+  export PATH="$LXC_CONTAINER_DIR/bin:$PATH"
 
   o mmdebstrap "${ARGS[@]}"
 }
