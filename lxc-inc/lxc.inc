@@ -526,14 +526,14 @@ EOF
 	b="TPL_$a"
 	printf '#LXC#%11s=%q\n' "$a" "${!b}"
   done
-  printf '# Settings from %q\n' "$S"
+  printf '# Settings from %q\n' "$T"
   printf '#\n'
   o awk -vI="$I" '	# put inode number into ethernet
 	BEGIN		{ X=sprintf("%06x", I) }
 	/^#/		{ next }
 	$1~/\.hwaddr$/	{ while (/:xx/) { l=length(X); x=substr(X,l-1); X=substr(X,0,l-2); if (x=="") x="00"; sub(/:xx/,":"x) } }
 			{print}
-	' "$S"
+	' "$T"
   } >> "$C"
 }
 
