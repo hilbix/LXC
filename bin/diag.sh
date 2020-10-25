@@ -33,9 +33,8 @@ LIST=()
 for a
 do
 	LXCcontainer "$a"
-	b="$LXC_BASE/LXC/$LXC_CONTAINER/config"
-	[ -s "$b" ] || WARN cannot find "$b" || continue
-	LIST+=("$b")
+	[ -s "$LXC_CONTAINER_CFG" ] || WARN cannot find "$LXC_CONTAINER_CFG" || continue
+	LIST+=("$LXC_CONTAINER_CFG")
 done
 
 cat <<EOF
