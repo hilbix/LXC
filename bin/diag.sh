@@ -33,7 +33,7 @@ LIST=()
 for a
 do
 	LXCcontainer "$a"
-	b="$BASE/LXC/$LXC_CONTAINER/config"
+	b="$LXC_BASE/LXC/$LXC_CONTAINER/config"
 	[ -s "$b" ] || WARN cannot find "$b" || continue
 	LIST+=("$b")
 done
