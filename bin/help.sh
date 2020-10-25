@@ -10,6 +10,7 @@ LXC_ARGS=-1
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
+Human DIAG diag
 had=false
 for a
 do
@@ -20,7 +21,7 @@ do
 
 Notes for all commands:
 - Usage is printed for commandline arguments -h or --help
-- All commands allow environment variables, see: LXC diag
+- Most commands allow some environment variables, see command: $DIAG
 - Most commands automatically invoke 'setup' if needed
 - Commands' scripts are located at $LXC_BASE/bin/
 
