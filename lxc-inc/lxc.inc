@@ -40,6 +40,7 @@ OOPS() { STDERR OOPS: "$@"; exit 23; }
 BUG() { OOPS internal error: "$@"; }
 NEED() { local a b; for a; do [ -n "${!a}" ] || BUG $a not set; done; }
 WARN() { local e=$?; LXC_MURX=2; STDERR WARN: "$@"; return $e; }
+ERR() { local e=$?; LXC_MURX=1; STDERR ERR: "$@"; return $e; }
 x() { local LC_ALL=C.UTF-8; export LC_ALL; "$@"; }
 o() { x "$@" || OOPS rc=$?: "$@"; }
 # touch $'hello world\n' && f="$(echo hell*)" && test -f "$f" || echo POSIX fail
@@ -126,9 +127,9 @@ LXCexit()
 local err="${1:-$LXC_MURX}"
 case "$err" in
 (''|*[^0-9]*)	BUG LXCexit cannot return "$err";;
-(0)	STDERR "$LXC_CMD" finished successfully;;
-(2)	STDERR "$LXC_CMD" finished with warning;;
-(*)	STDERR "$LXC_CMD" finished with error;;
+(0)	STDERR "$LXC_CMD" success;;
+(2)	STDERR "$LXC_CMD" Warning;;
+(*)	STDERR "$LXC_CMD" _ERROR_;;
 esac
 exit "$err"
 }
@@ -213,6 +214,8 @@ check-BIN()
 	newgidmap newuidmap	\
 	lxc-ls			\
 	lxc-attach		\
+	lxc-start		\
+	lxc-stop		\
 	;
   do
 	which "$a" >/dev/null || OOPS this needs "$a" installed
