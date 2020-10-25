@@ -67,6 +67,7 @@ LXClocate()
   test -x "${!1}" || return
 }
 
+#V LXC_WRAPPER	set to some human friendly command to invoke the current command
 # stuff VAR with the correct "human way" to call a command
 : Human VAR cmd
 Human()
@@ -138,6 +139,7 @@ MvAway()
 #
 
 LXC_MURX=0
+#V LXC_QUIET	set to suppress success/warning message end of command
 : LXCexit
 LXCexit()
 {
@@ -407,9 +409,9 @@ settings-print()
 : Help script arg0
 Help()
 {
-  o awk -vLXC="${2:-"$1"}" -vPATH="$LXC_BASE" '
+  o awk -vLXC="${2:-"$1"}" -vPATH="$LXC_BASE" -vSEL="${3:-"#U"}" '
 	$2=="Usage:"	{ $2="Usage: " LXC }
-	/^#U ?/		{ sub(/^#U ?/,""); gsub(/{CMD}/, LXC); gsub(/{PATH}/, PATH); print }
+	/^#/ && $1==SEL	{ sub(/^#U ?/,""); gsub(/{CMD}/, LXC); gsub(/{PATH}/, PATH); print }
 	' "$1"
 }
 
