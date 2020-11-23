@@ -193,7 +193,32 @@ map2lxc()
 			}
 		out(pos, n)
 		}
-	' "$2"
+	END	{ exit(!start) }
+	' "$2" && return
+
+  max=0
+  while IFS=: read -ru6 _ nr cnt
+  do
+	let nr+=cnt
+	[ $max -lt $nr ] && max=$nr
+  done 6<"$2"
+
+printf '\nLXC_USAGE=%q\n\n' "$LXC_USAGE" >&2
+
+  Squelch subugid >&2 <<EOF
+	ID mapping for your user "$4" (UID $3) not found in file "$2".
+	!THIS CANNOT WORK!
+
+	There is no standard ocommand to add it, but you can try:
+	sudo$(printf ' %q' tee -a "$2") <<<'$4:$max:65536'
+	Then re-invoke:$(printf ' %q' ${LXC_USAGE:-"$0"})
+
+	Race condition warning:
+	Be sure file "$2" is not altered before you do this!
+
+	Stopping here.
+EOF
+  return 1	# stopping here
 }
 
 #
@@ -472,7 +497,7 @@ setup-DEFAULT()
   ov G id -g
   ov N id -u -n
   ov S id -g -n
-  {
+  (
   # I did not find a proper authentic documentation about default.conf
   # man lxc.system.conf is only partially helpful,
   # it is more like an example where all the problems with lxc start ..
@@ -505,7 +530,7 @@ setup-DEFAULT()
 EOF
   o map2lxc u /etc/subuid "$U" "$N"
   o map2lxc g /etc/subgid "$G" "$S"
-  } >> "$TMP" || OOPS cannot write "$TMP"
+  ) >> "$TMP" || OOPS something failed. "$TMP" not removed
   MoveWithBackupComparing "$TMP" "$1"
 }
 
