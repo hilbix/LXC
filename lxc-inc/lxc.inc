@@ -34,7 +34,7 @@ VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
 #
 # Quick'n'dirty standards
 #
-STDOUT() { local e=$?; printf '%q' "$1"; [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
+STDOUT() { local e=$?; [ 0 -lt $# ] && printf '%q' "$1" && [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
 STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
 OOPS() { STDERR OOPS: "$@"; exit 23; }
 BUG() { OOPS internal error: "$@"; }
@@ -88,12 +88,14 @@ Human()
 : Squelch tag <<<message
 Squelch()
 {
+  local SQUELCH
+
   fgrep -sqx "$1" "$LXC_BASE/CFG/lxc.squelch" && return
   LXC_MURX=2
   while read -ru6 line
   do
 	printf 'WARN: %s\n' "$line"
-  done 6< <(sep; Human CMD squelch; STDOUT To not fix it and squelch following message use:; $LXC_CMD "$1"; sep; cat; sep)
+  done 6< <(sep; Human CMD squelch; STDOUT To not fix it and squelch following message use:; STDOUT $CMD "$1"; sep; cat; sep)
 }
 
 : MustNotExist path message..
@@ -114,7 +116,7 @@ TarCopy()
 : MoveWithBackupComparing SRC DEST
 MoveWithBackupComparing()
 {
-  if	cmp -q -- "$@"
+  if	cmp -s -- "$@"
   then
 	o rm -f -- "$1"
 	return
@@ -246,6 +248,7 @@ check-BIN()
 	lxc-attach		\
 	lxc-start		\
 	lxc-stop		\
+	lxc-usernsexec		\
 	;
   do
 	which "$a" >/dev/null || OOPS this needs "$a" installed
@@ -296,7 +299,7 @@ EOF
   ov b printf '%q' "$a"
   fgrep -sqx "$a" /etc/lxc/lxc-usernet ||
   Squelch usernet <<EOF
-	/etc/lxc/lxc-usernet perhas not contain your user.
+	/etc/lxc/lxc-usernet perhaps does not contain your user.
 
 	To fix try someting like:
 	sudo tee -a /etc/lxc/lxc-usernet <<<$b
@@ -359,7 +362,6 @@ settings-get()
   # Now (possibly) override the values by the files
   o . <(o awk -vPREF="$1_" -vLIST="${PARAM0[*]} ${PARAM1[*]}" '
 	BEGIN		{
-			gsub(/,/," ", LIST);
 			n = split(LIST, k)
 			while (--n>=0)
 				vars[k[n+1]]=1
@@ -530,7 +532,7 @@ LXCsettings-create()
 LXCsettings()
 {
   NEED LXC_CONTAINER_TPL
-  o settings-get "${1:-GET}" "$$LXC_CONTAINER_TPL"
+  o settings-get "${1:-GET}" "$LXC_CONTAINER_TPL"
 }
 
 # Create the $LXC_CONTAINER_TPL if it not already exists
