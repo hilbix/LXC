@@ -435,7 +435,9 @@ setup-LXC()
   [ -d "$1" ] && return
   MustNotExist "$1" no directory nor softlink to directory
   WARN interactive LXC setup not yet completed.  Creating default "$1"/
-  o ln -nsf --backup=t --relative "$HOME/.local/share/lxc" "$1"
+  local dir="$HOME/.local/share/lxc"
+  [ -d "$dir" ] || o mkdir -p "$dir"
+  o ln -nsf --backup=t --relative "$dir" "$1"
 }
 
 # Create the directory or softlink to CFG.
@@ -446,7 +448,9 @@ setup-CFG()
   [ -d "$1" ] && return
   MustNotExist "$1" no directory nor softlink to directory
   WARN interactive LXC setup not yet completed.  Creating default "$1"/
-  o ln -nsf --backup=t --relative "$HOME/.config/lxc" "$1"
+  local dir="$HOME/.config/lxc"
+  [ -d "$dir" ] || o mkdir -p "$dir"
+  o ln -nsf --backup=t --relative "$dir" "$1"
 }
 
 # Create a suitable and meaningful ~/.config/lxc/default.conf
