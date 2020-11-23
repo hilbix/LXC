@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#U Usage: CONTAINER [list|check|set|unset|help [TAG[=line]..]]
+#U Usage: CONTAINER [CMD [TAG[=line]..]]
 #U	CONTAINER TAGs management
 #
 # This Works is placed under the terms of the Copyright Less License,
@@ -97,7 +97,8 @@ Tprotect()
   notSet delete
 }
 
-#U	CHECK checks if a tag is present or not
+#U	Valid CMDs:
+#U	check	Checks if a tag is present or not
 do-check()
 {
   NEED tag
@@ -114,13 +115,13 @@ do-check()
   [ -f "$TAG_DIR/$LXC_tag" ] || FAIL missing TAG "$LXC_tag"
 }
 
-#U	HELP explains a tag or lists all known tags
+#U	help	Explains a tag or lists all known tags
 dohelp()
 {
   :
 }
 
-#U	LIST (default) lists all set tags (when no tags are give)
+#U	list	(default) Lists all set tags (when no tags are given)
 d0-list()
 {
   for tag in "$TAG_DIR"/*
@@ -149,7 +150,7 @@ do-list()
   cat "$tag"
 }
 
-#U	SET a tag.  Fails if it is in conflict with other TAGs
+#U	set	Defines a tag.  Fails if it is in conflict with other TAGs
 do-set()
 {
   NEED tag
@@ -171,7 +172,7 @@ do-set()
   STDOUT new TAG "$LXC_tag"
 }
 
-#U	UNSET a tag.  This fails if the tag's file is nonempty.
+#U	unset	Removes a tag.  This fails if the tag's file is nonempty.
 do-unset()
 {
   NEED tag
