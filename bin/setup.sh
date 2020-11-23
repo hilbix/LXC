@@ -20,48 +20,57 @@ LXC_ARGS=-1
 ME="$(readlink -e -- "$0")" || exit
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
+# If we cannot find our wrapper somethings is broken anyway
+ov SRC readlink -e "$LXC_BASE/bin/lxc.sh"
+
 note()
 {
   local a
   {
 	printf 'Cannot detect wrapper\n'
-	printf 'for %q\n' "$CMP"
+	printf 'for %q\n' "$SRC"
 	ov a readlink -e "$HOME/bin/."
 	printf 'in  %q\n' "$a"
 	for a
 	do
 		printf '%s\n' "$a"
 	done
-  } | squelch wrapper
+  } | Squelch wrapper
 }
 
 check()
 {
-  ov CMP readlink -e "$LXC_BASE/bin/lxc.sh"
-  for a in "$HOME"/bin/*
+  for CMD in "$HOME"/bin/*
   do
-	[ -L "$a" ] || continue
-	ov CHK readlink -e "$a"
-	[ ".$CMP" = ".$CHK" ] && return 0
+	[ -L "$CMD" ] || continue
+	ov DST readlink -m "$CMD"
+	[ ".$SRC" = ".$DST" ] && return 0
   done
-
-  ov a readlink -m "$HOME/bin/LXC"
-  if	[ -L "$a" ] || [ -e "$a" ]
-  then
-	note 'Please re-invoke setup with a proper name as first argument.' '(Name LXC already taken.)'
-  else
-	note "Creating default wrapper $a"
-	return 1
-  fi
+  note 'Creating default wrapper'
+  return 1	# invokes setup
 }
 
 setup()
 {
-  o LXCvalid "$1"
-  ov a readlink -m "$HOME/bin/$1"
+  local SETUP
+
+  o LXCvalidU "$1" not a valid wrapper name
+
+  CMD="$HOME/bin/$1"
+  ov DST readlink -m "$CMD"
+  [ ".$SRC" = ".$DST" ] && return 0
+  if	[ -L "$DST" ] || [ -e "$DST" ]
+  then
+	Human SETUP setup
+	note "Please re-invoke $SETUP with a proper wrapper name as first argument." "(Name $1 already taken.)"
+	return 1
+  fi
+
+  STDOUT Creating wrapper "$DST"
+  o ln -nsf --backup=t --relative "$SRC" "$DST"
 }
 
-[ -z "$1" ] && check || setup "${1:-LXC}"
+[ -z "$1" ] && check || setup "${1:-LXC}" && STDOUT && STDOUT You can run: "$CMD" && STDOUT
 
 STDERR note: Setup still needs a lot improvement.
 LXCexit
