@@ -212,8 +212,6 @@ map2lxc()
 	[ $max -lt $nr ] && max=$nr
   done 6<"$2"
 
-printf '\nLXC_USAGE=%q\n\n' "$LXC_USAGE" >&2
-
   Squelch subugid >&2 <<EOF
 	ID mapping for your user "$4" (UID $3) not found in file "$2".
 	!THIS CANNOT WORK!
