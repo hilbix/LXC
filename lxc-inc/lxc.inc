@@ -25,7 +25,7 @@ set -C			# noclobber
 #
 # PARAM0: Single value which will be owverwritten
 PARAM0=(UID GID SUITE   VARIANT  SCHEMA  PRELOAD)
-VALUE0=(0   0   buster  minbase  http:// '')
+VALUE0=(-1  -1  buster  minbase  http:// '')
 # PARAM1: Comma separated multiple values which can be combined
 PARAM1=(REPOS                   KEYS                        INCLUDES)
 VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
@@ -163,7 +163,7 @@ exit "$err"
 
 # Find entries of /etc/sub?id and output them as LXC configuration items
 # Also map your own UID/GID into some other UID of the target,
-# usually given as LXC_UID/LXC_GID (default: 0/0)
+# usually given as LXC_UID/LXC_GID (default: -1/-1), -1 does not map your IDs
 # so your user can become a certain user in the LXC
 # XXX TODO XXX this is shit in shit out, so it must be checked in check-DEFAULT
 : map2lxc 1:UG 2:/etc/subUGid 3:UID/GID 4:username/groupname [5:MAP_ID_to_not_if_-1]
