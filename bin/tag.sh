@@ -64,7 +64,7 @@ tagunset()
 }
 
 
-#T marks CONTAINER as autostart
+#T autostart	marks CONTAINER as autostart
 #T	note that autostart is not yet implemented,
 #T	but this prohibits to set the 'delete' tag
 Tautostart()
@@ -72,15 +72,15 @@ Tautostart()
   notSet delete
 }
 
-#T makes LXC stop CONTAINER fail
+#T unstoppable	makes LXC stop CONTAINER fail
 #T	Note that we cannot protect the container against
-#	low level commands like 'lxc-stop'.
+#T	low level commands like 'lxc-stop'.
 Tunstoppable()
 {
   notSet delete
 }
 
-#T make CONTAINER deleteable
+#T delete	make CONTAINER deleteable
 #T	without this tag 'LXC remove' fails
 Tdelete()
 {
@@ -89,9 +89,9 @@ Tdelete()
   notSet autostart protect unstoppable
 }
 
-#T protects the CONTAINER against delete
+#T protect	protects the CONTAINER against delete
 #T	Note that we cannot protect the container against
-#	low level commands like 'rm' or 'lxc-destroy'.
+#T	low level commands like 'rm' or 'lxc-destroy'.
 Tprotect()
 {
   notSet delete
@@ -116,9 +116,16 @@ do-check()
 }
 
 #U	help	Explains a tag or lists all known tags
-dohelp()
+d0-help()
 {
-  :
+  # This is currently a wrong implementation, but better than nothing
+  Help "$0" '' '#T'
+}
+
+do-help()
+{
+  # XXX TODO XXX implement better, so it also explains user tags
+  d0-help
 }
 
 #U	list	(default) Lists all set tags (when no tags are given)
