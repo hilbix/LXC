@@ -9,11 +9,13 @@
 
 LXC_ARGS=1-
 ME="$(readlink -e -- "$0")" || exit
+export LXC_WRAPPER="${0##*/}"
+export LXC_USAGE="$LXC_WRAPPER${1:+ }$1"
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 o LXCvalid "$1" invalid command name
 o LXClocate CMD "$1"
 [ -x "$CMD" ] || OOPS unknown command: "$1"
 
-LXC_WRAPPER="${0##*/}" LXC_USAGE="$LXC_WRAPPER $1" exec "$LXC_BASE/bin/$1.sh" "${@:2}"
+exec "$LXC_BASE/bin/$1.sh" "${@:2}"
 
