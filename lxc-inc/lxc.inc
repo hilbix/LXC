@@ -29,6 +29,15 @@ VALUE0=(-1  -1  buster  minbase  http:// '')
 # PARAM1: Comma separated multiple values which can be combined
 PARAM1=(REPOS                   KEYS                        INCLUDES)
 VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
+#V UID		where to map your UID (does not work yet)
+#V GID		where to map your GID (does not work yet)
+#V PRELOAD	LD_PRELOAD to use when calling commands acting on container
+#V SUITE	mmdebstrap: SUITE
+#V VARIANT	mmdebstrap: TARGET
+#V KEYS		mmdebstrap: comma separated list of GPG-Keys verifying repository
+#V INCLUDES	mmdebstrap: comma separated list of packages to install
+#V REPOS	mmdebstrap: comma separated list of MIRRORs to use (with SCHEMA removed!)
+#V SCHEMA	http:// or https:// or some prefix to your apt-cacher-ng or similar
 
 
 #
@@ -67,7 +76,7 @@ LXClocate()
   test -x "${!1}" || return
 }
 
-#V LXC_WRAPPER	set to some human friendly command to invoke the current command
+#V WRAPPER	set to some human friendly command to invoke the current command
 # stuff VAR with the correct "human way" to call a command
 : Human VAR cmd
 Human()
@@ -141,7 +150,7 @@ MvAway()
 #
 
 LXC_MURX=0
-#V LXC_QUIET	set to suppress success/warning message end of command
+#V QUIET	set to suppress success/warning message end of command
 : LXCexit
 LXCexit()
 {
