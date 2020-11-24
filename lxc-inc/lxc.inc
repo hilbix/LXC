@@ -519,7 +519,8 @@ setup-DEFAULT()
 #lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
 #
 # The outside user (you!) becomes "root" in a container (from outside without powers)
-# This way it becomes way more easy to interact with containers
+# This way it becomes way more easy to interact with containers.
+# (DOES NOT WORK YET!)
 #
 #lxc.idmap = u 0 $U 1
 #lxc.idmap = g 0 $G 1
@@ -721,12 +722,52 @@ LXCcontainer-mmdebstrap()
 	ARGS+=("$GET_SCHEMA$a")
   done
 
-  # Patch in our "binaries" which fix the wrong default route taken my mmdebstrap.
+  # Patch in our "binaries" which fix try to fix the ownership.
   # Hopefully "mmdebstrap" continues to use $PATH for them,
   # as else it would be more easy to just re-invent something like mmdebstrap from scratch.
-  export PATH="$LXC_CONTAINER_DIR/bin:$PATH"
+  #export PATH="$LXC_CONTAINER_DIR/bin:$PATH"
+  # However ..
+  # .. it looks like mmdebstrap takes it's route for a reason,
+  # because trying to do change the virtual UID 0 to our real UID
+  # (so we can be 'root' in the container) fails utterly.
+  # Currently I am puzzled and have no clue at all.
+  # We probably need to install "normally" and fix things afterwards the Munchausen way.
+  # If this cannot be done the complete setup process around (CFG/default.conf) probably must be changed.
+  # For now I leave this idea in here and leave cleanup for future.
 
   o mmdebstrap "${ARGS[@]}"
+
+  # XXX TODO XXX add Munchausen fix here.  Idea:
+  # - make sure our (the outside) "chown" understands --from and --no-dereference
+  # - Find the "wrong" ID1, the one used by mmdebstrap
+  # - Find a "scratch" ID0, which must be different from ID1 (usually ID1+1 suffices)
+  # - Enter container as ID0 (root) like this:
+  #	lxc-usernsexec -m b:0:$ID0:1 -m b:1:$ID1:1 -m "u:2:${id -u}:1" -m "g:2:${id -g}:1" -- "${CMD[@]}"
+  #   - ID0 is some (arbitrary) temporary root ID different from ID1 and ID2
+  #   - ID1 is the "wrong" ID
+  #   - ID2 is the "right" ID (usually our own id)
+  # - Then map all container's ID1 to ID2 with $CMD being something like:
+  #	CMD=(chown -R --no-dereference --from=1:1 2:2 "$LXC_CONTAINER_DIR/rootfs/.")
+  # But I do not like that as this is a bit hackish.
+  # The right thing would be:
+  # - Create a container maintainance mode
+  #   - This first copies a statically linked maintainance shell into the container
+  #   - Then it starts the container using this maintainance shell
+  #   - Everything then is correctly mapped, including being fully chrooted
+  # - Then enter maintainance mode, let this maintainance shell do the fix from inside, and stop maintainance mode
+  # - This also allows to 'remap' IDs later on in case configuration changes
+  # - This also allows to start a shell inside a container which does not provide a shell at all
+  # This probably means we need a statically linked busybox for this somewhere.
+  # Why?  All we only know is:
+  # - The container runs our kernel, so we can use all the features of it
+  # - We do not know anything from the inside, as this is up to the container what it contains
+  # - But the container is controlled from outside
+  # - So we can copy (or mount) some binary into rootfs/. and execute it and the container has no chance to interfere
+  # Hence provided that a static busybox (or a similar shell) has all the needed features, we can use that.
+  # - But beware, perhaps starting the container is not the correct way to do in all cases.
+  # - Perhaps it is better to create a maintainance container which then has access to the rootfs of the container.
+  # So this needs some carfully designed implementation, which need's more time than I currently have for this.
+  # Perhaps implement the above workaround first and leave correct implementation for the future.
 }
 
 
