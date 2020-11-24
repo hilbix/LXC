@@ -211,7 +211,7 @@ printf '\nLXC_USAGE=%q\n\n' "$LXC_USAGE" >&2
 
 	There is no standard ocommand to add it, but you can try:
 	sudo$(printf ' %q' tee -a "$2") <<<'$4:$max:65536'
-	Then re-invoke:$(printf ' %q' ${LXC_USAGE:-"$0"})
+	Then re-invoke:$(printf ' %q' ${LXC_USAGE:-"$0"} "${LXC_ARGS[@]}")
 
 	Race condition warning:
 	Be sure file "$2" is not altered before you do this!
@@ -753,6 +753,8 @@ case "$LXC_ARGS" in
 (*-*)	[ $# -ge "${LXC_ARGS%%-*}" ] || [ $# -le "${LXC_ARGS##*-}" ];;
 (*)	[ $# = "$LXC_ARGS" ];;
 esac || Usage	# or error with hint to try --help?
+
+LXC_ARGS=("$@")
 
 o setup-LXC	"$LXC_BASE/LXC"
 o setup-CFG	"$LXC_BASE/CFG"
