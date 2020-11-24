@@ -28,7 +28,7 @@ PARAM0=(UID GID SUITE   VARIANT  SCHEMA  PRELOAD)
 VALUE0=(-1  -1  buster  minbase  http:// '')
 # PARAM1: Comma separated multiple values which can be combined
 PARAM1=(REPOS                   KEYS                        INCLUDES)
-VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
+VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim,gnupg2)
 #V UID		where to map your UID (does not work yet)
 #V GID		where to map your GID (does not work yet)
 #V PRELOAD	LD_PRELOAD to use when calling commands acting on container
