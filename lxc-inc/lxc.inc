@@ -23,10 +23,10 @@ set -C			# noclobber
 #
 # Defaults
 #
-# PARAM0: Single value
-PARAM0=(UID GID SUITE   VARIANT  SCHEMA)
-VALUE0=(0   0   buster  minbase  http://)
-# PARAM1: Comma separated multiple values
+# PARAM0: Single value which will be owverwritten
+PARAM0=(UID GID SUITE   VARIANT  SCHEMA  PRELOAD)
+VALUE0=(0   0   buster  minbase  http:// '')
+# PARAM1: Comma separated multiple values which can be combined
 PARAM1=(REPOS                   KEYS                        INCLUDES)
 VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim)
 
@@ -735,7 +735,7 @@ LXCcontainer-mmdebstrap()
   # If this cannot be done the complete setup process around (CFG/default.conf) probably must be changed.
   # For now I leave this idea in here and leave cleanup for future.
 
-  o mmdebstrap "${ARGS[@]}"
+  LD_PRELOAD="$GET_PRELOAD" o mmdebstrap "${ARGS[@]}"
 
   # XXX TODO XXX add Munchausen fix here.  Idea:
   # - make sure our (the outside) "chown" understands --from and --no-dereference
