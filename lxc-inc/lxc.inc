@@ -443,9 +443,9 @@ settings-print()
 : Help script arg0
 Help()
 {
-  o awk -vLXC="${2:-"$1"}" -vPATH="$LXC_BASE" -vSEL="${3:-"#U"}" '
+  o awk -vLXC="${2:-"${LXC_USAGE:-"$1"}"}" -vPATH="$LXC_BASE" -vSEL="${3:-"#U"}" '
 	$2=="Usage:"	{ $2="Usage: " LXC }
-	/^#/ && $1==SEL	{ sub(/^#U ?/,""); gsub(/{CMD}/, LXC); gsub(/{PATH}/, PATH); print }
+	/^#/ && $1==SEL	{ sub(/^#[A-Z] ?/,""); gsub(/{CMD}/, LXC); gsub(/{PATH}/, PATH); print }
 	' "$1"
 }
 
@@ -453,7 +453,7 @@ Help()
 : Usage
 Usage()
 {
-  Help "$0" "${LXC_USAGE:-"${0##*/}"}"
+  Help "$0"
   exit 42
 }
 
