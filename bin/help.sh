@@ -34,14 +34,14 @@ Standard RC if not noted otherwise:
 
 EOF
 	had=:
-	if	[ -z "$LXC_USAGE" ]
+	if	[ -z "$LXC_WRAPPER" ]
 	then
-		Help "$CMD"
+		Help "$CMD" "$CMD"
 	elif [ lxc = "$a" ]
 	then
-		Help "$CMD" "${LXC_USAGE%% *}"
+		Help "$CMD" "$LXC_WRAPPER"
 	else
-		Help "$CMD" "${LXC_USAGE%% *} $a"
+		Help "$CMD" "$LXC_WRAPPER $a"
 	fi
 done
 
