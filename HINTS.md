@@ -17,6 +17,14 @@ Following must be improved:
 - `LXC run $CONTAINER` fails with `lxc-attach: $CONTAINER: attach.c: lxc_attach: 993 Failed to get init pid`
   - `LXC start $CONTAINER`
 
+## Missing
+
+- `LXC_uid` and `LXC_gid` are not correctly supported yet.
+  - `wrap/` contains augmented binaries `newgidmap` and `newuidmap`
+  - Both are currently not correctly implemented and misleadingly named.
+  - In future a default of `LXC_uid=1000` and `LXC_gid=1000` probably makes more sense,
+    as `1000` is the default first UID/GID for Debian containers.
+  - Currently `LXC_uid=-1` and `LXC_gid=-1`, because this will be compatible to the future.
 
 ## APT
 
