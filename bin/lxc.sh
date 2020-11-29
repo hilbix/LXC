@@ -10,7 +10,10 @@
 LXC_ARGS=1-
 ME="$(readlink -e -- "$0")" || exit
 export LXC_WRAPPER="${0##*/}"
-export LXC_USAGE="$LXC_WRAPPER${1:+ }$1"
+case "$*" in
+(''|-*)	export LXC_USAGE="$LXC_WRAPPER";;
+(*)	export LXC_USAGE="$LXC_WRAPPER $1";;
+esac
 . "${ME%/*/*}/lxc-inc/lxc.inc" || exit
 
 o LXCvalid "$1" invalid command name
