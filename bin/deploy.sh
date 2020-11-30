@@ -193,6 +193,17 @@ Cend()
   END="$1"
 }
 
+#C env VAR [ENV]
+#C	set VAR from ENVironment
+#C	If ENV is missing, VAR is used instead
+Cenv()
+{
+  local v="${2:-$1}"
+  args 1 2 "$@"
+  good "$1" invalid variable name
+  setVAR "$1" "${!v}"
+}
+
 #C set VAR STR
 #C	set VAR to STRING
 Cset()
@@ -200,6 +211,15 @@ Cset()
   args 1 0 "$@"
   good "$1" invalid variable name
   setVAR "$1" "${*:2}"
+}
+
+#C add VAR STR
+#C	append STRING to VAR (with spaces)
+Cadd()
+{
+  args 1 0 "$@"
+  good "$1" invalid variable name
+  setVAR "$1" "${VARS["$1"]}" "${*:2}"
 }
 
 #C replace VAR /regex/ replacement
