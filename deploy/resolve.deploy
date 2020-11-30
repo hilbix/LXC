@@ -1,0 +1,17 @@
+#
+# Set the linux resolvers
+#
+# This currently has no error checking at all
+# and only works for a recent Debian.
+
+default
+1.1.1.1
+8.8.8.8
+END
+
+deploy	debian
+
+file	:	/etc/resolv.conf
+nameserver {ARGS}
+END
+
