@@ -1,0 +1,8 @@
+# Install etckeeper
+
+deploy	debian
+
+depend	APT
+
+run	{APT}	etckeeper
+
