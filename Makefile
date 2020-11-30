@@ -8,6 +8,6 @@ all:	install
 
 .PHONY:	install
 install:
-	[ -d '$(HOME)/bin' ] || mkdir '$(HOME)/bin'
-	ln -s --relative bin/lxc.sh '$(HOME)/bin/LXC'
+	echo running setup
+	bin/setup.sh
 
