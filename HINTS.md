@@ -30,7 +30,25 @@ Following must be improved:
     as `1000` is the default first UID/GID for Debian containers.
   - Currently `LXC_uid=-1` and `LXC_gid=-1`, because this will be compatible to the future.
 
+
+### X11?
+
+T.B.D.
+
+
+
+# Deployment added
+
+Following has `LXC deploy` targets, see scripts `deploy/*.deploy`.
+
 ## APT
+
+> Try: `LXC deploy $CONTAINER ip`
+>
+> This includes:
+>
+>     LXC deploy $CONTAINER resolve
+>     LXC deploy $CONTAINER apt
 
 This needs `networking` and perhaps `DNS`:
 
@@ -62,6 +80,11 @@ OK
 ```
 
 ## Networking
+
+> Basically implemented.  Use:
+>
+>     LXC deploy $CONTAINER ip
+>     LXC deploy $CONTAINER resolve
 
 ```
 LXC start $CONTAINER;
@@ -108,9 +131,3 @@ EOF
 LXC stop $CONTAINER;
 LXC start $CONTAINER;
 ```
-
-
-## X11?
-
-T.B.D.
-
