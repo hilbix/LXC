@@ -2,6 +2,9 @@
 #
 # Arbitrary deployment script
 
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin
+export PATH
+
 CMD="$1"
 shift || exit
 
