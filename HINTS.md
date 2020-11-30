@@ -1,4 +1,9 @@
-# Hints 'n TODOs
+# Hints
+
+After you have installed a default container, use `LXC deploy APT` to initalize APT correctly.
+
+
+# TODOs
 
 Things not yet really working out of the box yet.
 
@@ -43,12 +48,12 @@ Following has `LXC deploy` targets, see scripts `deploy/*.deploy`.
 
 ## APT
 
-> Try: `LXC deploy $CONTAINER ip`
+> Try: `LXC deploy $CONTAINER APT`
 >
 > This includes:
 >
+>     LXC deploy $CONTAINER ip
 >     LXC deploy $CONTAINER resolve
->     LXC deploy $CONTAINER apt
 
 This needs `networking` and perhaps `DNS`:
 
