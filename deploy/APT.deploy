@@ -1,0 +1,13 @@
+# Initialize APT in a fresh container
+#
+# Sets variable {APT} for installs
+
+deploy	debian
+
+depend	NET
+
+run	apt-key add /etc/apt/trusted.gpg.d/*.gpg
+run	{NET} {PROXY} apt-get update && {PROXY} apt-get install -y -f
+
+set	APT	{NET} apt-get install -y --
+
