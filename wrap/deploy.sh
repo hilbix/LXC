@@ -29,7 +29,7 @@ test dir = "$CMD" &&
 
 test run = "$CMD" &&
 {
-  exec "$@"
+  exec sh -xc "$*"
   exit 1
 }
 
