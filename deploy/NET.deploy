@@ -1,0 +1,17 @@
+# Initialize network
+#
+# Adds {NET} hack to put in front of all commands
+# which need a network
+
+depend	ip resolve
+
+# for some reason "ifdown" is needed before "ifup"
+set	NET	ifdown -a; ifup -a &&
+
+# Optionally pull in proxy setting from environment
+env	PROXY
+env	https_proxy
+env	http_proxy
+add	PROXY	https_proxy={https_proxy}
+add	PROXY	http_proxy={http_proxy}
+
