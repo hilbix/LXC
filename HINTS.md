@@ -8,6 +8,10 @@ This must change.  Here are some hints to do after `LXC create CONTAINER`:
 
 - `LXC create $CONTAINER $TEMPLATE` creates some unexpected `CFG/lxc-$CONTAINER.conf`
   - But it works as intended
+- `deploy` script language cannot handle filenames with multiple spaces or ending on spaces
+  - Perhaps this will never be supported, as such filenames are plain crap.
+  - Fix the deployment to not use filenames with spaces in them.  PERIOD!
+  - So this probably is a good thing ;)
 
 
 ## TODOs

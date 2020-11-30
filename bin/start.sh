@@ -16,7 +16,7 @@ LXCcontainer "$1"
 # when logging is on WARN something like following can be seen:
 # start - start.c:lxc_spawn:1758 - Operation not permitted - Failed to allocate new network name
 # Can this be ignored?  If so, why is it a warning and not a notice?
-lxc-start -n "$LXC_CONTAINER" && LXCexit
+lxc-start -n "$LXC_CONTAINER" && LXCinfo && LXCexit
 
 WARN verbose retry due to error code $?: lxc-start "$LXC_CONTAINER"
 

@@ -45,7 +45,21 @@ VALUE1=(deb.debian.org/debian/  debian-archive-keyring.gpg  vim,gnupg2)
 #
 STDOUT() { local e=$?; [ 0 -lt $# ] && printf '%q' "$1" && [ 1 -lt $# ] && printf ' %q' "${@:2}"; printf '\n'; return $e; }
 STDERR() { local e=$?; STDOUT "$@" >&2 || exit 23; return $e; }
-OOPS() { STDERR OOPS: "$@"; exit 23; }
+OOPS()
+{
+  n=1;
+  while c="$(caller $n)";
+  do
+        a="${c%% *}";
+        b="${c#"$a "}";
+        b="${b%% *}";
+        c="${c#"$a $b "}";
+        printf '#E#%s#%d##function %s: %s#\n' "$c" "$a" "$b" "$*" >&2;
+        let n++;
+  done;
+  STDERR OOPS: "$@";
+  exit 23;
+}
 BUG() { OOPS internal error: "$@"; }
 NEED() { local a b; for a; do [ -n "${!a}" ] || BUG $a not set; done; }
 FAIL() { local e=$?; LXC_MURX=1; STDOUT FAIL: "$@"; return $e; }
@@ -544,8 +558,68 @@ EOF
 
 
 #
+# Housekeeping
+#
+
+LXCinfo()
+{
+  NEED LXC_CONTAINER LXC_CONTAINER_DIR
+
+  for a in . . . . . . . . . . . . . . . . . . .
+  do
+	IPS="$(o lxc-info -n "$LXC_CONTAINER" -Hi)"
+	if	[ -n "$IPS" ]
+	then
+		echo "$IPS" >|"$LXC_CONTAINER_DIR/IPS.txt"
+		echo "IP:" $IPS
+		return
+	fi
+	sleep .1
+  done
+}
+
+
+#
 # MISC / Unsorted
 #
+
+# Execute some command OUTSIDE of the Container in the NS of the Container
+# (as the privileged container user)
+#
+# XXX TODO XXX support LXC_UID and LXC_GID
+LXCrun()
+{
+  NEED LXC_CONTAINER_CFG
+
+  [ -s "$LXC_CONTAINER_CFG" ] || OOPS "$LXC_CONTAINER_CFG" not present
+  local ARGS=()
+  while read -ru6 map
+  do
+        ARGS+=("-m" "$map")
+  done 6< <(sed -ne 's/[[:space:]][[:space:]]*/:/g' -e '/^[^#]/s/^lxc\.idmap:*=:*//p' "$LXC_CONTAINER_CFG")
+  # Some implementations of lxc-usernsexec fail if run without -m
+  [ -n "$ARGS" ] || OOPS lxc.idmap missing in "$LXC_CONTAINER_CFG"
+  lxc-usernsexec "${ARGS[@]}" -- "$@"
+}
+
+# Execute test OUTSIDE of the Container in the NS of the Container
+# (as the privileged container user)
+LXCtest()
+{
+  LXCrun test "$@"
+}
+
+# Execute some command INSIDE the Container
+# (as the privileged container user)
+#
+# Container must be stopped for this to work
+LXCexec()
+{
+  NEED LXC_CONTAINER
+
+  lxc-execute -n "$LXC_CONTAINER" -- "$@"
+}
+
 
 # If the config file $LXC_CONTAINER_TPL is missing:
 # - It will be created.
@@ -666,7 +740,7 @@ LXCcontainer-update()
 
   o test  -e "$LXC_CONTAINER_TPL"
   o mkdir -p "$LXC_CONTAINER_DIR" "$LXC_CONTAINER_DIR/rootfs"
-  o MvAway "$LXC_CONTAINER_DIR/config"
+  o MvAway "$LXC_CONTAINER_CFG"
   {
   printf '# From %q\n' "$LXC_CONTAINER_TPL"
   cat "$LXC_CONTAINER_TPL"
@@ -681,7 +755,7 @@ LXCcontainer-update()
 	b="GET_$a"
 	printf '#LXC#%11s=%q\n' "$a" "${!b}"
   done
-  } >"$LXC_CONTAINER_DIR/config"
+  } >"$LXC_CONTAINER_CFG"
 
   o MvAway "$LXC_CONTAINER_DIR/trust.d"
   o mkdir "$LXC_CONTAINER_DIR/trust.d"
