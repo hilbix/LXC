@@ -1,0 +1,19 @@
+# Install Google Chrome
+#
+# Hey, Google, that's bad!
+#
+# All we need is a super-small .deb which just adds Google's keys
+# and some /etc/apt/sources.list.d/google-chrome.list
+#
+# Afterwards everything works the natural way with `apt-get install google-chrome`
+
+# XXX TODO XXX download command to cache and verify the .deb
+# XXX TODO XXX how to verify that the download is leggit?
+
+deploy	debian
+
+depend	etckeeper APT
+
+run	{APT}	wget
+run	{NET}	if apt-get install google-chrome; then :; else {PROXY} wget -N https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb; dpkg -i google-chrome-stable_current_amd64.deb; apt-get install -y -f; fi
+
