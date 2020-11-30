@@ -1,0 +1,25 @@
+#
+# give list of IPs or sub-IPs of the interfaces
+#
+# This currently has no error checking at all
+# and only works for a recent Debian.
+
+default	free-ips
+
+deploy	debian
+
+for	NR	{ARGS}
+
+set	GW	{ARGS:{NR}}
+replace	GW	/\.[^.]*$/	.1
+
+file	:	/etc/network/interfaces.d/eth{NR}
+auto eth{NR}
+iface eth{NR} inet static
+address {ARGS:{NR}}
+netmask 255.255.255.0
+gateway {GW}
+END
+
+END
+
