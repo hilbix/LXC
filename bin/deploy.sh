@@ -17,41 +17,16 @@ ME="$(readlink -e -- "$0")" || exit
 
 LXCcontainer "$1"
 LXCvalidU "$2" invalid deploy script name
-INPUT="$LXC_BASE/deploy/$2.deploy"
-
-[ -f "$INPUT" ] || OOPS "$INPUT" missing
-
-BBUG() { BUG "$@"; }
-BUG()
-{
-  local n=1
-
-  while c="$(caller $n)"
-  do
-	a="${c%% *}"
-	b="${c#"$a "}"
-	b="${b%% *}"
-	c="${c#"$a $b "}"
-	printf '#E#%s#%d##function %s: %s#\n' "$c" "$a" "$b" "$*" >&2
-	let n++
-  done
-  OOPS "$@"
-}
-
-INTERNAL()
-{
-  BUG internal error
-}
 
 ERROR()
 {
   if [ ".$PC" = ".$CNR" ]
   then
 	printf '#E#%s#%d##cmd %s: %s#\n' "$INPUT" "$[PC-1]" "$CMD" "$*" >&2
-	BUG "$INPUT" line "$PC" cmd "$CMD": "$@"
+	OOPS "$INPUT" line "$PC" cmd "$CMD": "$@"
   else
 	printf '#E#%s#%d##cmd %s line %d: %s#\n' "$INPUT" "$[PC-1]" "$CMD" "$CNR" "$*" >&2
-	BUG "$INPUT" line "$PC": cmd "$CMD" at line "$CNR": "$@"
+	OOPS "$INPUT" line "$PC": cmd "$CMD" at line "$CNR": "$@"
   fi
 }
 
@@ -65,9 +40,22 @@ good()
 args()
 {
   local a="$1" b="$2"
-  shift 2 || INTERNAL 1
+  shift 2 || BUG 1
   [ $# -ge "$a" ] || ERROR too few args
   [ $# -le "$b" ] || [ "$b" -lt "$a" ] || ERROR excess args: "${@:$[b+1]}"
+}
+
+active()
+{
+  local a
+
+  [ -n "$TARGET" ] &&				# execution switched off
+  for a in "${DEPLOY[@]}"
+  do
+	[ ".$a" = ".$TARGET" ] && return 0	# TARGET is "deploy"'s set, so execute
+  done
+
+  return 1					# not active currently
 }
 
 #C deploy TARGET..
@@ -79,6 +67,21 @@ Cdeploy()
 {
   args 1 0 "$@"
   DEPLOY=("$@")
+}
+
+#C depend OTHER..
+#C	Automatically invode OTHER dependencies
+Cdepend()
+{
+  local	a
+
+  args 1 0 "$@"
+  active || return 0
+  for a
+  do
+	good "$a"
+	include "$a"
+  done
 }
 
 #C default function [args..]
@@ -175,6 +178,7 @@ Cfor()
 		let NR++
 	done
   fi
+  :
 }
 
 #C end STRING
@@ -229,28 +233,47 @@ Creplace()
   fi
 }
 
+# This runs the given command in the container
+# with the help of a script named /.deploy.sh
+#
+# Munchausens welcome
+deploy()
+{
+  NEED LXC_CONTAINER_DIR
+
+  active || return 0
+
+  cmp -s "$LXC_BASE/wrap/deploy.sh" "$LXC_CONTAINER_DIR/rootfs/.deploy.sh" ||
+	o LXCexec tee /.deploy.sh < "$LXC_BASE/wrap/deploy.sh" >/dev/null
+  LXCtest -x /.deploy.sh ||
+	o LXCexec chmod +x /.deploy.sh
+  LXCexec /.deploy.sh "$@"
+}
+
 #C file PERM:UID:GID FILE
 #C  ..
 #C END
 #C	Write the given data to FILE in VM
 Cfile()
 {
-  local DATA
+  local DATA perm user
 
   args 2 0 "$@"
 
   DATA=()
   while IFS= getline
   do
-	DATA+="$LINE"
+	DATA+=("$LINE")
   done
 
-  o deploy file "$1" "${*:2}" < <(printf '%s\n' "$DATA")
+  perm="${1%%:*}"
+  user="${1#"$perm"}"
+  user="${user#:}"
+
+  cmp -s - "$LXC_CONTAINER_DIR/roofs/${*:2}" < <(printf '%s\n' "${DATA[@]}") ||
+  o deploy file "$perm" "$user" "${*:2}"     < <(printf '%s\n' "${DATA[@]}")
 }
 
-#  perm="${1%%:*}"
-#  user="${1#"$perm"}"
-#  user="${user#:}"
 
 #C mkdir PERM:UID:GID DIR
 #C	create the directory with the given permission set
@@ -258,10 +281,24 @@ Cfile()
 #C	If UID:GID is missing, it is unchanged (default: 0:0)
 Cmkdir()
 {
-  local a t perm user
+  local perm user
 
   args 2 1 "$@"
-  o deploy dir "$1" "${*:2}"
+
+  perm="${1%%:*}"
+  user="${1#"$perm"}"
+  user="${user#:}"
+
+  o deploy dir "$perm" "$user" "${*:2}"
+}
+
+#C run CMDLINE
+#C	run a commandline
+#C	SPC/TAB cannot be passed in args, as args are space separated
+Crun()
+{
+  args 1 0 "$@"
+  o deploy run "$@"
 }
 
 setV()
@@ -292,7 +329,7 @@ getline()
 	setV "${BASH_REMATCH[2]}"
 	LINE="${BASH_REMATCH[1]}${V}${BASH_REMATCH[3]}"
   done
-  case "$LINE" in (*'{'*|*'}'*)	BBUG "$LINE";; esac
+  case "$LINE" in (*'{'*|*'}'*)	ERROR unexpanded "$LINE";; esac
 }
 
 proc()
@@ -336,17 +373,33 @@ setVAR()
 # printf 'VAR %q = %q\n' "$1" "${*:2}"
 }
 
-mapfile -tO1 LINES <"$INPUT" || OOPS cannot read "$2"
+include()
+{
+  local LINES PC="$PC" INPUT="$INPUT" TMP="$LXC_BASE/deploy/$1.deploy"
+
+  [ -z "${DONE["$1"]}" ] || return 0
+  DONE["$1"]=:
+
+  [ -f "$TMP" ] || ERROR "$TMP" missing
+  mapfile -tO1 LINES <"$TMP" || ERROR cannot read "$TMP"
+
+  printf '%4d: processing %q\n' 0 "$TMP"
+
+  INPUT="$TMP"
+  run 1
+}
+
 #settings-get GET "$LXC_CONTAINER_CFG"
 
-declare -A VARS
+declare -A VARS DONE
 setVAR ARGS "${@:3}"
 
 END=END
 DEPLOY=()
 TARGET=debian		# XXX TODO XXX detect this somehow!
 
-run 1
+PC=0
+include "$2"
 
 LXCexit
 
