@@ -18,7 +18,6 @@ This must change.  Here are some hints to do after `LXC create CONTAINER`:
   - Fix the deployment to not use filenames with spaces in them.  PERIOD!
   - So this probably is a good thing ;)
 
-
 ## TODOs
 
 Following must be improved:
@@ -35,6 +34,34 @@ Following must be improved:
     as `1000` is the default first UID/GID for Debian containers.
   - Currently `LXC_uid=-1` and `LXC_gid=-1`, because this will be compatible to the future.
 
+- `lxc-info $CONTAINER`
+  - should probably go into `diag` but `diag` currently is too chatty
+  - `info` command?
+
+- support more [parameters](https://www.thomas-krenn.com/de/wiki/Cgroup_Werte_von_LXC_Linux_Containern) out of the box (and do it generically so it can be easily extended)
+  - There should also be a way to make those default on each level
+  - There are 4 levels: default, template, `CFG/lxc-$CONTAINER.config`, `LXC/$CONTAINER/config`
+
+- Check presence of `cgroup.memory.memsw` which needs swap accounting:
+  - How to enable see https://unix.stackexchange.com/a/279175/23450
+
+Perhaps commands to support:
+
+- `lxc-checkconfig` - put this into `setup`?
+- `lxc-console $CONTAINER`
+- `lxc-info $CONTAINER`
+- `lxc-top` and `lxc-monitor`
+- `lxc-autostart` must be implemented via `tag`
+
+- `lxc-execute` to execute even in stopped state? (`run` uses `lxc-attach`)?
+  - According to manual you can only use execute while the container is in stopped state
+  - As container runs when execute is busy running this in parallel can lead to a race
+  - Hence I do not like it, the ugly race when using two `lxc-execute` looks like:
+
+```
+lxc-execute: b2: start.c: lxc_init_handler: 709 Failed to set up command socket
+lxc-execute: b2: tools/lxc_execute.c: main: 226 Failed run an application inside container
+```
 
 ### X11?
 
@@ -44,7 +71,9 @@ T.B.D.
 
 # Deployment added
 
-Following has `LXC deploy` targets, see scripts `deploy/*.deploy`.
+Following can be done with `LXC deploy` now, see scripts `deploy/*.deploy`.
+
+
 
 ## APT
 
