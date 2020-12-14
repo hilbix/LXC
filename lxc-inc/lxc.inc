@@ -313,7 +313,7 @@ check-GLOBALS()
 	USE_LXC_BRIDGE="true"
 
 	To fix try something like:
-	sudo tee -a /etc/default/lxc-net <<<'echo USE_LXC_BRIDGE="true"'
+	sudo tee -a /etc/default/lxc-net <<<'USE_LXC_BRIDGE="true"'
 EOF
 
   fgrep -sq 'lxc.net.0.' /etc/lxc/default.conf ||
