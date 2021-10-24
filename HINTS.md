@@ -1,6 +1,8 @@
 # Hints
 
-After you have installed a default container, use `LXC deploy APT` to initalize APT correctly.
+After you have installed a default container, use following:
+
+- `LXC deploy APT` to allow 'apt-get udpate' etc. in the container
 
 
 # TODOs
